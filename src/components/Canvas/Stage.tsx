@@ -41,7 +41,7 @@ function DeviceNode({
   isSelected: boolean;
   image: HTMLImageElement | null;
   onSelect: () => void;
-  onTransformEnd: (id: string, width: number, height: number) => void;
+  onTransformEnd: (id: string, width: number, height: number, x: number, y: number) => void;
   onDragEnd: (id: string, x: number, y: number) => void;
   onPortClick: (deviceId: string, portId: string) => void;
   onPortMove: (deviceId: string, portId: string, x: number, y: number) => void;
@@ -54,10 +54,11 @@ function DeviceNode({
 
   useEffect(() => {
     if (isSelected && trRef.current && shapeRef.current) {
+      // Force transformer to recalculate after device dimensions change
       trRef.current.nodes([shapeRef.current]);
       trRef.current.getLayer()?.batchDraw();
     }
-  }, [isSelected]);
+  }, [isSelected, device.width, device.height]);
 
   // Default ports for linking
   const displayPorts = device.ports?.length > 0 ? device.ports : DEFAULT_PORTS;
@@ -90,13 +91,20 @@ function DeviceNode({
           if (node) {
             const scaleX = node.scaleX();
             const scaleY = node.scaleY();
+
+            // Get the new dimensions
+            const newWidth = Math.max(60, device.width * scaleX);
+            const newHeight = Math.max(60, device.height * scaleY);
+
+            // Reset node scale and position immediately
             node.scaleX(1);
             node.scaleY(1);
-            onTransformEnd(
-              device.id,
-              Math.max(60, node.width() * scaleX),
-              Math.max(60, node.height() * scaleY)
-            );
+            node.x(0);
+            node.y(0);
+
+            // Update dimensions only - keep position at device.x, device.y
+            // Resize always anchors to top-left corner
+            onTransformEnd(device.id, newWidth, newHeight, device.x, device.y);
           }
         }}
         onMouseEnter={() => setIsHovered(true)}
@@ -147,7 +155,7 @@ function DeviceNode({
           const portY = device.height * port.y;
           const isDefaultPort = port.id.startsWith('port-');
           const isPortHovered = hoveredPortId === port.id;
-          
+
           return (
             <Group key={port.id}>
               {/* Port circle - draggable if device is selected and not a default port */}
@@ -240,26 +248,26 @@ export default function CanvasStage() {
   const [images, setImages] = useState<Record<string, HTMLImageElement>>({});
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  
+
   // Port-to-port linking state
   const [linkingMode, setLinkingMode] = useState(false);
   const [linkSource, setLinkSource] = useState<{ deviceId: string; portId: string } | null>(null);
-  
+
   // Waypoint linking state
   const [pendingWaypoints, setPendingWaypoints] = useState<Array<{ x: number; y: number }>>([]);
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
-  
+
   // Link hover state
   const [hoveredLinkId, setHoveredLinkId] = useState<string | null>(null);
-  
+
   // Multi-select rubber band state
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [selectionStart, setSelectionStart] = useState<{ x: number; y: number } | null>(null);
-  
+
   // Track drag start positions for multi-device move (used in future enhancement)
   const [_dragStartPositions, setDragStartPositions] = useState<Record<string, { x: number; y: number }>>({});
-  
+
   const {
     topology,
     selection,
@@ -313,23 +321,23 @@ export default function CanvasStage() {
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     // Don't start selection if in linking mode - we're adding waypoints instead
     if (linkingMode) return;
-    
+
     // Only start selection if clicking on the stage itself (not on a device)
     if (e.target === e.target.getStage()) {
       const stage = e.target.getStage();
       if (!stage) return;
-      
+
       const pos = stage.getPointerPosition();
       if (!pos) return;
-      
+
       // Convert to canvas coordinates
       const x = (pos.x - position.x) / scale;
       const y = (pos.y - position.y) / scale;
-      
+
       setIsSelecting(true);
       setSelectionStart({ x, y });
       setSelectionRect({ x, y, width: 0, height: 0 });
-      
+
       // Clear selection if not holding Shift
       if (!e.evt.shiftKey) {
         setSelection({
@@ -346,16 +354,16 @@ export default function CanvasStage() {
   // Handle mouse move - update selection rectangle
   const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (!isSelecting || !selectionStart) return;
-    
+
     const stage = e.target.getStage();
     if (!stage) return;
-    
+
     const pos = stage.getPointerPosition();
     if (!pos) return;
-    
+
     const x = (pos.x - position.x) / scale;
     const y = (pos.y - position.y) / scale;
-    
+
     setSelectionRect({
       x: Math.min(selectionStart.x, x),
       y: Math.min(selectionStart.y, y),
@@ -373,7 +381,7 @@ export default function CanvasStage() {
         const deviceBottom = device.y + device.height;
         const rectRight = selectionRect.x + selectionRect.width;
         const rectBottom = selectionRect.y + selectionRect.height;
-        
+
         // Check if device overlaps with selection rect
         return (
           device.x < rectRight &&
@@ -382,7 +390,7 @@ export default function CanvasStage() {
           deviceBottom > selectionRect.y
         );
       });
-      
+
       if (selectedDevices.length > 0) {
         setSelection({
           deviceIds: selectedDevices.map(d => d.id),
@@ -391,7 +399,7 @@ export default function CanvasStage() {
           shapeIds: [],
           textIds: [],
         });
-        
+
         // Store initial positions for multi-device drag
         const positions: Record<string, { x: number; y: number }> = {};
         selectedDevices.forEach(d => {
@@ -400,7 +408,7 @@ export default function CanvasStage() {
         setDragStartPositions(positions);
       }
     }
-    
+
     setIsSelecting(false);
     setSelectionRect(null);
     setSelectionStart(null);
@@ -455,36 +463,36 @@ export default function CanvasStage() {
   // Handle canvas click during linking mode to add waypoint
   const handleCanvasClickForWaypoint = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (!linkingMode || !linkSource) return;
-    
+
     // Get the clicked target's name or check if it's part of a device
     const target = e.target;
     const targetName = target.name?.() || '';
     const parent = target.getParent();
     const parentName = parent?.name?.() || '';
-    
+
     // Skip if clicking on a port circle (they have specific handling)
     // Ports are Circle elements within device Groups
     if (target.getClassName() === 'Circle' && parent?.getClassName() === 'Group') {
       return; // Let port click handler manage this
     }
-    
+
     // Skip if clicking on a device (Group with device image)
-    if (target.getClassName() === 'Group' || 
-        parentName.includes('device') || 
-        targetName.includes('device')) {
+    if (target.getClassName() === 'Group' ||
+      parentName.includes('device') ||
+      targetName.includes('device')) {
       return;
     }
-    
+
     // For all other clicks (stage, grid lines, preview line, etc.) - add waypoint
     const stage = e.target.getStage();
     if (!stage) return;
-    
+
     const pos = stage.getPointerPosition();
     if (!pos) return;
-    
+
     const x = (pos.x - position.x) / scale;
     const y = (pos.y - position.y) / scale;
-    
+
     setPendingWaypoints(prev => [...prev, { x, y }]);
     e.cancelBubble = true;
   };
@@ -515,7 +523,7 @@ export default function CanvasStage() {
   // Handle drop from palette
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    
+
     const jsonData = e.dataTransfer.getData('application/json');
     if (!jsonData) return;
 
@@ -566,7 +574,7 @@ export default function CanvasStage() {
           textIds: [],
         });
       }
-      
+
       // Delete or Backspace - Remove selected items
       if (e.key === 'Delete' || e.key === 'Backspace') {
         selection.deviceIds.forEach(id => {
@@ -583,7 +591,7 @@ export default function CanvasStage() {
           textIds: [],
         });
       }
-      
+
       // Escape - Cancel linking mode
       if (e.key === 'Escape') {
         setLinkingMode(false);
@@ -598,7 +606,7 @@ export default function CanvasStage() {
   const getLinkPoints = (link: any) => {
     const fromDevice = topology.devices.find(d => d.id === link.from.deviceId);
     const toDevice = topology.devices.find(d => d.id === link.to.deviceId);
-    
+
     if (!fromDevice || !toDevice) return null;
 
     let fromX, fromY, toX, toY;
@@ -606,9 +614,9 @@ export default function CanvasStage() {
     // Calculate Source Point
     if (link.from.portId) {
       // Try to find the port in device ports or default ports
-      const port = fromDevice.ports.find((p: any) => p.id === link.from.portId) 
-                || DEFAULT_PORTS.find(p => p.id === link.from.portId);
-      
+      const port = fromDevice.ports.find((p: any) => p.id === link.from.portId)
+        || DEFAULT_PORTS.find(p => p.id === link.from.portId);
+
       if (port) {
         fromX = fromDevice.x + (fromDevice.width * port.x);
         fromY = fromDevice.y + (fromDevice.height * port.y);
@@ -626,8 +634,8 @@ export default function CanvasStage() {
     // Calculate Target Point
     if (link.to.portId) {
       const port = toDevice.ports.find((p: any) => p.id === link.to.portId)
-                || DEFAULT_PORTS.find(p => p.id === link.to.portId);
-      
+        || DEFAULT_PORTS.find(p => p.id === link.to.portId);
+
       if (port) {
         toX = toDevice.x + (toDevice.width * port.x);
         toY = toDevice.y + (toDevice.height * port.y);
@@ -644,9 +652,9 @@ export default function CanvasStage() {
     const dx = toX - fromX;
     const dy = toY - fromY;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    
+
     // Shorten by port radius (approx 10-12px) plus a defined margin
-    const padding = 12; 
+    const padding = 12;
 
     if (distance > padding * 2) {
       const angle = Math.atan2(dy, dx);
@@ -663,10 +671,10 @@ export default function CanvasStage() {
   };
 
   return (
-    <div 
-      ref={containerRef} 
+    <div
+      ref={containerRef}
       className="w-full h-full relative overflow-hidden"
-      style={{ 
+      style={{
         background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
       }}
       onDrop={handleDrop}
@@ -758,10 +766,10 @@ export default function CanvasStage() {
                   textIds: [],
                 });
               }}
-              onTransformEnd={(id, width, height) => {
+              onTransformEnd={(id, width, height, x, y) => {
                 dispatch({
                   type: 'UPDATE_DEVICE',
-                  payload: { id, updates: { width, height } },
+                  payload: { id, updates: { width, height, x, y } },
                 });
               }}
               onDragEnd={(id, x, y) => {
@@ -793,7 +801,7 @@ export default function CanvasStage() {
             if (!points) return null;
 
             const isLinkSelected = selection.linkIds.includes(link.id);
-            
+
             // Build full path with waypoints
             const waypoints = link.controlPoints || [];
             const allPoints: number[] = [points.fromX, points.fromY];
@@ -803,7 +811,7 @@ export default function CanvasStage() {
             allPoints.push(points.toX, points.toY);
 
             return (
-              <Group 
+              <Group
                 key={link.id}
                 onClick={(e) => {
                   e.cancelBubble = true;
@@ -868,20 +876,20 @@ export default function CanvasStage() {
           {linkingMode && linkSource && mousePosition && (() => {
             const sourceDevice = topology.devices.find(d => d.id === linkSource.deviceId);
             if (!sourceDevice) return null;
-            
+
             const sourcePort = sourceDevice.ports.find((p: any) => p.id === linkSource.portId)
-                            || DEFAULT_PORTS.find(p => p.id === linkSource.portId);
+              || DEFAULT_PORTS.find(p => p.id === linkSource.portId);
             if (!sourcePort) return null;
-            
+
             const startX = sourceDevice.x + (sourceDevice.width * sourcePort.x);
             const startY = sourceDevice.y + (sourceDevice.height * sourcePort.y);
-            
+
             const previewPoints: number[] = [startX, startY];
             pendingWaypoints.forEach(wp => {
               previewPoints.push(wp.x, wp.y);
             });
             previewPoints.push(mousePosition.x, mousePosition.y);
-            
+
             return (
               <Group>
                 <Line

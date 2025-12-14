@@ -33,6 +33,7 @@ import serverBladeIcon from './icons/extra/server_blade.png';
 import pcTowerIcon from './icons/extra/pc_tower.png';
 import towerServer2Icon from './icons/extra/tower_server_2.png';
 import nasDriveIcon from './icons/extra/nas_drive.png';
+import serverRackIcon from './icons/server_rack.png';
 
 // Extra Icons - IoT / Office / Misc
 import dockingStationIcon from './icons/extra/docking_station.png';
@@ -63,7 +64,7 @@ export const builtInAssets: Asset[] = [
     defaultWidth: 170,
     defaultHeight: 130,
   },
-  
+
   // Security Devices
   {
     id: 'premium-f5-waf',
@@ -92,7 +93,7 @@ export const builtInAssets: Asset[] = [
     defaultWidth: 170,
     defaultHeight: 130,
   },
-  
+
   // Cloud & External
   {
     id: 'premium-cloud',
@@ -112,7 +113,7 @@ export const builtInAssets: Asset[] = [
     defaultWidth: 130,
     defaultHeight: 150,
   },
-  
+
   // Compute
   {
     id: 'premium-esxi',
@@ -123,7 +124,7 @@ export const builtInAssets: Asset[] = [
     defaultWidth: 140,
     defaultHeight: 120,
   },
-  
+
   // Storage Devices
   {
     id: 'premium-fujitsu-san',
@@ -154,7 +155,7 @@ export const builtInAssets: Asset[] = [
   },
 
   // ========== NEW EXTRACTED ICONS ==========
-  
+
   // Network Infrastructure
   { id: 'extra-wifi-router', name: 'WiFi Router', type: 'builtin', src: wifiRouterIcon, category: 'Network', defaultWidth: 120, defaultHeight: 100 },
   { id: 'extra-wifi-ap', name: 'WiFi Access Point', type: 'builtin', src: wifiApIcon, category: 'Network', defaultWidth: 120, defaultHeight: 100 },
@@ -175,6 +176,7 @@ export const builtInAssets: Asset[] = [
   { id: 'extra-server-blade', name: 'Server Blade', type: 'builtin', src: serverBladeIcon, category: 'Compute', defaultWidth: 130, defaultHeight: 80 },
   { id: 'extra-pc-tower', name: 'PC Tower', type: 'builtin', src: pcTowerIcon, category: 'Compute', defaultWidth: 100, defaultHeight: 130 },
   { id: 'extra-tower-server-2', name: 'Server Tower', type: 'builtin', src: towerServer2Icon, category: 'Compute', defaultWidth: 100, defaultHeight: 140 },
+  { id: 'extra-server-rack', name: 'Server Rack', type: 'builtin', src: serverRackIcon, category: 'Compute', defaultWidth: 100, defaultHeight: 140 },
 
   // Storage
   { id: 'extra-nas-drive', name: 'NAS Drive', type: 'builtin', src: nasDriveIcon, category: 'Storage', defaultWidth: 110, defaultHeight: 130 },
