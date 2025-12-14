@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150">
+  <defs>
+    <linearGradient id="ciscoBody" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#50b8e6"/>
+      <stop offset="50%" style="stop-color:#2090c0"/>
+      <stop offset="100%" style="stop-color:#106888"/>
+    </linearGradient>
+  </defs>
+  
+  <g transform="translate(20, 35)">
+    <!-- Top face -->
+    <polygon points="80,5 160,35 80,65 0,35" fill="#60c8f6" stroke="#3090b8" stroke-width="1"/>
+    
+    <!-- Cisco logo area -->
+    <text x="50" y="45" font-family="Arial" font-size="14" fill="white" font-weight="bold" transform="skewX(-20)">CISCO</text>
+    
+    <!-- Front face -->
+    <polygon points="0,35 80,65 80,95 0,65" fill="url(#ciscoBody)" stroke="#1080a8" stroke-width="1"/>
+    
+    <!-- Right face -->
+    <polygon points="80,65 160,35 160,65 80,95" fill="#106888" stroke="#105868" stroke-width="1"/>
+    
+    <!-- LEDs -->
+    <circle cx="15" cy="50" r="3" fill="#00ff88"/>
+    <circle cx="25" cy="50" r="3" fill="#00ff88"/>
+    <circle cx="35" cy="50" r="3" fill="#00ff88"/>
+    
+    <!-- Ports -->
+    <rect x="50" y="55" width="8" height="6" rx="1" fill="#0a3a4a"/>
+    <rect x="62" y="55" width="8" height="6" rx="1" fill="#0a3a4a"/>
+    <rect x="74" y="55" width="8" height="6" rx="1" fill="#0a3a4a"/>
+  </g>
+</svg>

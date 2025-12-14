@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150">
+  <defs>
+    <linearGradient id="switchBody" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#5bb8e6"/>
+      <stop offset="50%" style="stop-color:#2a8ab8"/>
+      <stop offset="100%" style="stop-color:#1a5a78"/>
+    </linearGradient>
+    <linearGradient id="switchTop" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#7dcff0"/>
+      <stop offset="100%" style="stop-color:#4aa8d0"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Main body - 3D isometric box -->
+  <g transform="translate(20, 30)">
+    <!-- Top face -->
+    <polygon points="80,10 160,40 80,70 0,40" fill="url(#switchTop)" stroke="#3a9fc9" stroke-width="1"/>
+    
+    <!-- Front face -->
+    <polygon points="0,40 80,70 80,100 0,70" fill="url(#switchBody)" stroke="#2a7a98" stroke-width="1"/>
+    
+    <!-- Right face -->
+    <polygon points="80,70 160,40 160,70 80,100" fill="#1a5a78" stroke="#2a7a98" stroke-width="1"/>
+    
+    <!-- LED lights on front -->
+    <circle cx="15" cy="55" r="3" fill="#00ff88" filter="url(#glow)"/>
+    <circle cx="25" cy="55" r="3" fill="#00ff88" filter="url(#glow)"/>
+    <circle cx="35" cy="55" r="3" fill="#ffaa00" filter="url(#glow)"/>
+    <circle cx="45" cy="55" r="3" fill="#00ff88" filter="url(#glow)"/>
+    
+    <!-- Port holes -->
+    <rect x="10" y="62" width="8" height="6" rx="1" fill="#0a3a4a"/>
+    <rect x="22" y="62" width="8" height="6" rx="1" fill="#0a3a4a"/>
+    <rect x="34" y="62" width="8" height="6" rx="1" fill="#0a3a4a"/>
+    <rect x="46" y="62" width="8" height="6" rx="1" fill="#0a3a4a"/>
+    <rect x="58" y="62" width="8" height="6" rx="1" fill="#0a3a4a"/>
+    
+    <!-- Vents on top -->
+    <line x1="30" y1="30" x2="50" y2="40" stroke="#3a9fc9" stroke-width="1"/>
+    <line x1="40" y1="28" x2="60" y2="38" stroke="#3a9fc9" stroke-width="1"/>
+    <line x1="50" y1="26" x2="70" y2="36" stroke="#3a9fc9" stroke-width="1"/>
+    <line x1="60" y1="24" x2="80" y2="34" stroke="#3a9fc9" stroke-width="1"/>
+  </g>
+</svg>

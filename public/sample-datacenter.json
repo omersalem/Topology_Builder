@@ -1,0 +1,206 @@
+{
+  "meta": {
+    "title": "Sample Datacenter Topology",
+    "createdAt": "2025-12-12T00:00:00Z",
+    "updatedAt": "2025-12-12T00:00:00Z",
+    "version": "1.0"
+  },
+  "canvas": {
+    "width": 4000,
+    "height": 3000,
+    "gridSize": 20,
+    "snapToGrid": true,
+    "showGrid": true,
+    "backgroundColor": "#1a1a1a"
+  },
+  "assets": [],
+  "devices": [
+    {
+      "id": "dev-firewall-1",
+      "assetId": "builtin-firewall",
+      "type": "Security",
+      "label": "Edge Firewall",
+      "x": 200,
+      "y": 150,
+      "width": 80,
+      "height": 80,
+      "rotation": 0,
+      "ports": [
+        { "id": "port-1", "name": "eth0", "x": 1, "y": 0.5, "orientation": "right" }
+      ],
+      "style": { "opacity": 1 }
+    },
+    {
+      "id": "dev-router-1",
+      "assetId": "builtin-router",
+      "type": "Network",
+      "label": "Core Router",
+      "x": 400,
+      "y": 160,
+      "width": 80,
+      "height": 60,
+      "rotation": 0,
+      "ports": [
+        { "id": "port-2", "name": "gi0/1", "x": 0, "y": 0.5, "orientation": "left" },
+        { "id": "port-3", "name": "gi0/2", "x": 1, "y": 0.3, "orientation": "right" },
+        { "id": "port-4", "name": "gi0/3", "x": 1, "y": 0.7, "orientation": "right" }
+      ],
+      "style": { "opacity": 1 }
+    },
+    {
+      "id": "dev-switch-1",
+      "assetId": "builtin-switch",
+      "type": "Network",
+      "label": "Access Switch 1",
+      "x": 600,
+      "y": 120,
+      "width": 100,
+      "height": 50,
+      "rotation": 0,
+      "ports": [
+        { "id": "port-5", "name": "0/1", "x": 0, "y": 0.5, "orientation": "left" },
+        { "id": "port-6", "name": "0/24", "x": 1, "y": 0.5, "orientation": "right" }
+      ],
+      "style": { "opacity": 1 }
+    },
+    {
+      "id": "dev-switch-2",
+      "assetId": "builtin-switch",
+      "type": "Network",
+      "label": "Access Switch 2",
+      "x": 600,
+      "y": 210,
+      "width": 100,
+      "height": 50,
+      "rotation": 0,
+      "ports": [
+        { "id": "port-7", "name": "0/1", "x": 0, "y": 0.5, "orientation": "left" },
+        { "id": "port-8", "name": "0/24", "x": 1, "y": 0.5, "orientation": "right" }
+      ],
+      "style": { "opacity": 1 }
+    },
+    {
+      "id": "dev-server-1",
+      "assetId": "builtin-server",
+      "type": "Compute",
+      "label": "Web Server 1",
+      "x": 800,
+      "y": 100,
+      "width": 70,
+      "height": 90,
+      "rotation": 0,
+      "ports": [
+        { "id": "port-9", "name": "eth0", "x": 0, "y": 0.5, "orientation": "left" }
+      ],
+      "style": { "opacity": 1 }
+    },
+    {
+      "id": "dev-server-2",
+      "assetId": "builtin-server",
+      "type": "Compute",
+      "label": "Web Server 2",
+      "x": 800,
+      "y": 210,
+      "width": 70,
+      "height": 90,
+      "rotation": 0,
+      "ports": [
+        { "id": "port-10", "name": "eth0", "x": 0, "y": 0.5, "orientation": "left" }
+      ],
+      "style": { "opacity": 1 }
+    },
+    {
+      "id": "dev-cloud-1",
+      "assetId": "builtin-cloud",
+      "type": "External",
+      "label": "Internet",
+      "x": 40,
+      "y": 140,
+      "width": 120,
+      "height": 70,
+      "rotation": 0,
+      "ports": [],
+      "style": { "opacity": 1 }
+    }
+  ],
+  "links": [
+    {
+      "id": "link-1",
+      "from": { "deviceId": "dev-cloud-1" },
+      "to": { "deviceId": "dev-firewall-1" },
+      "pathType": "straight",
+      "label": "WAN",
+      "style": { "color": "#ff6b6b", "width": 3, "dash": [] }
+    },
+    {
+      "id": "link-2",
+      "from": { "deviceId": "dev-firewall-1", "portId": "port-1" },
+      "to": { "deviceId": "dev-router-1", "portId": "port-2" },
+      "pathType": "straight",
+      "label": "10.0.0.0/24",
+      "style": { "color": "#51cf66", "width": 3, "dash": [] }
+    },
+    {
+      "id": "link-3",
+      "from": { "deviceId": "dev-router-1", "portId": "port-3" },
+      "to": { "deviceId": "dev-switch-1", "portId": "port-5" },
+      "pathType": "orthogonal",
+      "label": "VLAN 10",
+      "style": { "color": "#339af0", "width": 2, "dash": [] }
+    },
+    {
+      "id": "link-4",
+      "from": { "deviceId": "dev-router-1", "portId": "port-4" },
+      "to": { "deviceId": "dev-switch-2", "portId": "port-7" },
+      "pathType": "orthogonal",
+      "label": "VLAN 20",
+      "style": { "color": "#339af0", "width": 2, "dash": [] }
+    },
+    {
+      "id": "link-5",
+      "from": { "deviceId": "dev-switch-1", "portId": "port-6" },
+      "to": { "deviceId": "dev-server-1", "portId": "port-9" },
+      "pathType": "straight",
+      "label": "",
+      "style": { "color": "#adb5bd", "width": 2, "dash": [] }
+    },
+    {
+      "id": "link-6",
+      "from": { "deviceId": "dev-switch-2", "portId": "port-8" },
+      "to": { "deviceId": "dev-server-2", "portId": "port-10" },
+      "pathType": "straight",
+      "label": "",
+      "style": { "color": "#adb5bd", "width": 2, "dash": [] }
+    }
+  ],
+  "groups": [
+    {
+      "id": "group-dmz",
+      "label": "DMZ ZONE",
+      "x": 180,
+      "y": 100,
+      "width": 150,
+      "height": 150,
+      "style": {
+        "fill": "#ff6b6b",
+        "stroke": "#ff8787",
+        "opacity": 0.15
+      }
+    },
+    {
+      "id": "group-internal",
+      "label": "INTERNAL NETWORK",
+      "x": 380,
+      "y": 80,
+      "width": 540,
+      "height": 250,
+      "style": {
+        "fill": "#51cf66",
+        "stroke": "#69db7c",
+        "opacity": 0.12
+      }
+    }
+  ],
+  "shapes": [],
+  "texts": []
+}

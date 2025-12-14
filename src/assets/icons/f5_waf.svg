@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150">
+  <defs>
+    <linearGradient id="f5Body" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#cc3333"/>
+      <stop offset="50%" style="stop-color:#aa2222"/>
+      <stop offset="100%" style="stop-color:#881111"/>
+    </linearGradient>
+    <filter id="glowF5">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <g transform="translate(20, 35)">
+    <!-- Top face -->
+    <polygon points="80,5 160,35 80,65 0,35" fill="#dd4444" stroke="#aa2222" stroke-width="1"/>
+    
+    <!-- F5 Logo on top -->
+    <text x="55" y="42" font-family="Arial Black" font-size="20" fill="white" font-weight="bold" transform="skewX(-20)">F5</text>
+    
+    <!-- Front face -->
+    <polygon points="0,35 80,65 80,95 0,65" fill="url(#f5Body)" stroke="#881111" stroke-width="1"/>
+    
+    <!-- Right face -->
+    <polygon points="80,65 160,35 160,65 80,95" fill="#771111" stroke="#661111" stroke-width="1"/>
+    
+    <!-- LEDs -->
+    <circle cx="15" cy="50" r="3" fill="#00ff88" filter="url(#glowF5)"/>
+    <circle cx="25" cy="50" r="3" fill="#00ff88" filter="url(#glowF5)"/>
+    
+    <!-- Ports -->
+    <rect x="40" y="55" width="8" height="6" rx="1" fill="#4a0a0a"/>
+    <rect x="52" y="55" width="8" height="6" rx="1" fill="#4a0a0a"/>
+    <rect x="64" y="55" width="8" height="6" rx="1" fill="#4a0a0a"/>
+  </g>
+</svg>

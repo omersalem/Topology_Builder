@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150">
+  <defs>
+    <linearGradient id="sanBody" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4a4a4a"/>
+      <stop offset="50%" style="stop-color:#2a2a2a"/>
+      <stop offset="100%" style="stop-color:#1a1a1a"/>
+    </linearGradient>
+  </defs>
+  
+  <g transform="translate(20, 35)">
+    <!-- Top face -->
+    <polygon points="80,5 160,35 80,65 0,35" fill="#5a5a5a" stroke="#3a3a3a" stroke-width="1"/>
+    
+    <!-- Red accent stripe -->
+    <polygon points="60,18 140,38 120,48 40,28" fill="#cc3333"/>
+    
+    <!-- Front face -->
+    <polygon points="0,35 80,65 80,95 0,65" fill="url(#sanBody)" stroke="#1a1a1a" stroke-width="1"/>
+    
+    <!-- Right face -->
+    <polygon points="80,65 160,35 160,65 80,95" fill="#1a1a1a" stroke="#0a0a0a" stroke-width="1"/>
+    
+    <!-- LEDs -->
+    <circle cx="15" cy="50" r="3" fill="#00ff88"/>
+    <circle cx="25" cy="50" r="3" fill="#ffaa00"/>
+    
+    <!-- Ports -->
+    <rect x="40" y="55" width="8" height="6" rx="1" fill="#0a0a0a"/>
+    <rect x="52" y="55" width="8" height="6" rx="1" fill="#0a0a0a"/>
+    <rect x="64" y="55" width="8" height="6" rx="1" fill="#0a0a0a"/>
+  </g>
+</svg>
