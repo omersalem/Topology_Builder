@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type DragEvent } from 'react';
-import { Stage, Layer, Rect, Line, Arrow, Text, Circle, Group, Image, Transformer } from 'react-konva';
+import { Stage, Layer, Rect, Line, Arrow, Text, Circle, Group, Image, Transformer, Ellipse } from 'react-konva';
 import Konva from 'konva';
 import { useTopology } from '../../context/TopologyContext';
 import { generateId } from '../../utils/geometry';
@@ -92,19 +92,21 @@ function DeviceNode({
             const scaleX = node.scaleX();
             const scaleY = node.scaleY();
 
+            // Get absolute position on stage
+            const absPos = node.absolutePosition();
+
             // Get the new dimensions
             const newWidth = Math.max(60, device.width * scaleX);
             const newHeight = Math.max(60, device.height * scaleY);
 
-            // Reset node scale and position immediately
+            // Reset node scale and local position
             node.scaleX(1);
             node.scaleY(1);
             node.x(0);
             node.y(0);
 
-            // Update dimensions only - keep position at device.x, device.y
-            // Resize always anchors to top-left corner
-            onTransformEnd(device.id, newWidth, newHeight, device.x, device.y);
+            // Use absolute position directly
+            onTransformEnd(device.id, newWidth, newHeight, absPos.x, absPos.y);
           }
         }}
         onMouseEnter={() => setIsHovered(true)}
@@ -158,16 +160,42 @@ function DeviceNode({
 
           return (
             <Group key={port.id}>
-              {/* Port circle - draggable if device is selected and not a default port */}
+              {/* Large hit area for easier clicking - uses near-invisible fill */}
               <Circle
                 x={portX}
                 y={portY}
-                radius={isPortHovered ? 12 : (linkingMode ? 12 : 8)}
+                radius={25}
+                fill="rgba(0, 0, 0, 0.01)"
+                listening={true}
+                onClick={(e) => {
+                  e.cancelBubble = true;
+                  onPortClick(device.id, port.id);
+                }}
+                onTap={(e) => {
+                  e.cancelBubble = true;
+                  onPortClick(device.id, port.id);
+                }}
+                onMouseEnter={(e) => {
+                  setHoveredPortId(port.id);
+                  const container = e.target.getStage()?.container();
+                  if (container) container.style.cursor = 'pointer';
+                }}
+                onMouseLeave={(e) => {
+                  setHoveredPortId(null);
+                  const container = e.target.getStage()?.container();
+                  if (container) container.style.cursor = 'default';
+                }}
+              />
+              {/* Visible port circle */}
+              <Circle
+                x={portX}
+                y={portY}
+                radius={isPortHovered ? 14 : (linkingMode ? 14 : 10)}
                 fill={linkingMode ? '#22c55e' : (isPortHovered ? '#60a5fa' : '#3b82f6')}
                 stroke="#ffffff"
                 strokeWidth={2}
                 shadowColor={linkingMode ? '#22c55e' : '#3b82f6'}
-                shadowBlur={isPortHovered ? 12 : 8}
+                shadowBlur={isPortHovered ? 15 : 10}
                 draggable={isSelected && !isDefaultPort}
                 onClick={(e) => {
                   e.cancelBubble = true;
@@ -241,6 +269,151 @@ function DeviceNode({
   );
 }
 
+// Zone Shape component with resize capability
+function ZoneShape({
+  shape,
+  isSelected,
+  onSelect,
+  onTransformEnd,
+  onDragEnd,
+  onDelete,
+}: {
+  shape: any;
+  isSelected: boolean;
+  onSelect: () => void;
+  onTransformEnd: (id: string, width: number, height: number, x: number, y: number) => void;
+  onDragEnd: (id: string, x: number, y: number) => void;
+  onDelete: (id: string) => void;
+}) {
+  const shapeRef = useRef<Konva.Group>(null);
+  const trRef = useRef<Konva.Transformer>(null);
+
+  useEffect(() => {
+    if (isSelected && trRef.current && shapeRef.current) {
+      trRef.current.nodes([shapeRef.current]);
+      trRef.current.getLayer()?.batchDraw();
+    }
+  }, [isSelected]);
+
+  const handleTransformEnd = () => {
+    const node = shapeRef.current;
+    if (node) {
+      const scaleX = node.scaleX();
+      const scaleY = node.scaleY();
+
+      const newWidth = Math.max(50, shape.width * scaleX);
+      const newHeight = Math.max(50, shape.height * scaleY);
+
+      // Get absolute position
+      const absPos = node.absolutePosition();
+
+      node.scaleX(1);
+      node.scaleY(1);
+      node.x(0);
+      node.y(0);
+
+      onTransformEnd(shape.id, newWidth, newHeight, absPos.x, absPos.y);
+    }
+  };
+
+  return (
+    <>
+      <Group
+        ref={shapeRef}
+        x={shape.x}
+        y={shape.y}
+        width={shape.width}
+        height={shape.height}
+        draggable
+        onClick={(e) => {
+          e.cancelBubble = true;
+          onSelect();
+        }}
+        onDragEnd={(e) => {
+          onDragEnd(shape.id, e.target.x(), e.target.y());
+        }}
+        onTransformEnd={handleTransformEnd}
+      >
+        {shape.type === 'circle' ? (
+          <Ellipse
+            x={shape.width / 2}
+            y={shape.height / 2}
+            radiusX={shape.width / 2}
+            radiusY={shape.height / 2}
+            fill={shape.style.fill}
+            stroke={isSelected ? '#3b82f6' : shape.style.stroke}
+            strokeWidth={isSelected ? 3 : shape.style.strokeWidth}
+            opacity={shape.style.opacity}
+          />
+        ) : (
+          <Rect
+            width={shape.width}
+            height={shape.height}
+            fill={shape.style.fill}
+            stroke={isSelected ? '#3b82f6' : shape.style.stroke}
+            strokeWidth={isSelected ? 3 : shape.style.strokeWidth}
+            opacity={shape.style.opacity}
+            cornerRadius={shape.cornerRadius || 0}
+          />
+        )}
+      </Group>
+
+      {isSelected && (
+        <Transformer
+          ref={trRef}
+          rotateEnabled={false}
+          keepRatio={false}
+          enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
+          boundBoxFunc={(oldBox, newBox) => {
+            if (newBox.width < 50 || newBox.height < 50) {
+              return oldBox;
+            }
+            return newBox;
+          }}
+          anchorSize={12}
+          anchorCornerRadius={3}
+          anchorFill="#06b6d4"
+          anchorStroke="#ffffff"
+          anchorStrokeWidth={2}
+          borderStroke="#06b6d4"
+          borderStrokeWidth={2}
+          borderDash={[6, 3]}
+        />
+      )}
+      
+      {/* Delete button for selected zone */}
+      {isSelected && (
+        <Group
+          x={shape.x + shape.width - 10}
+          y={shape.y - 10}
+          onClick={(e) => {
+            e.cancelBubble = true;
+            onDelete(shape.id);
+          }}
+        >
+          <Circle
+            radius={12}
+            fill="#ef4444"
+            stroke="#ffffff"
+            strokeWidth={2}
+            shadowColor="black"
+            shadowBlur={4}
+            shadowOpacity={0.3}
+          />
+          <Text
+            x={-5}
+            y={-6}
+            text="✕"
+            fontSize={12}
+            fill="#ffffff"
+            fontStyle="bold"
+          />
+        </Group>
+      )}
+    </>
+  );
+}
+
 export default function CanvasStage() {
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -264,6 +437,10 @@ export default function CanvasStage() {
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectionRect, setSelectionRect] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [selectionStart, setSelectionStart] = useState<{ x: number; y: number } | null>(null);
+
+  // Pan mode state (for canvas dragging)
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null);
 
   // Track drag start positions for multi-device move (used in future enhancement)
   const [_dragStartPositions, setDragStartPositions] = useState<Record<string, { x: number; y: number }>>({});
@@ -317,18 +494,25 @@ export default function CanvasStage() {
     setScale(Math.max(0.1, Math.min(newScale, 5)));
   };
 
-  // Handle mouse down - start rubber band selection if on empty canvas
+  // Handle mouse down - start rubber band selection or panning if on empty canvas
   const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     // Don't start selection if in linking mode - we're adding waypoints instead
     if (linkingMode) return;
 
-    // Only start selection if clicking on the stage itself (not on a device)
+    // Only handle if clicking on the stage itself (not on a device)
     if (e.target === e.target.getStage()) {
       const stage = e.target.getStage();
       if (!stage) return;
 
       const pos = stage.getPointerPosition();
       if (!pos) return;
+
+      // If pan mode is active, start panning
+      if (topology.canvas.panMode) {
+        setIsPanning(true);
+        setPanStart({ x: pos.x - position.x, y: pos.y - position.y });
+        return;
+      }
 
       // Convert to canvas coordinates
       const x = (pos.x - position.x) / scale;
@@ -351,8 +535,21 @@ export default function CanvasStage() {
     }
   };
 
-  // Handle mouse move - update selection rectangle
+  // Handle mouse move - update selection rectangle or pan
   const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    // Handle panning
+    if (isPanning && panStart) {
+      const stage = e.target.getStage();
+      if (!stage) return;
+      const pos = stage.getPointerPosition();
+      if (!pos) return;
+      setPosition({
+        x: pos.x - panStart.x,
+        y: pos.y - panStart.y,
+      });
+      return;
+    }
+
     if (!isSelecting || !selectionStart) return;
 
     const stage = e.target.getStage();
@@ -375,12 +572,13 @@ export default function CanvasStage() {
   // Handle mouse up - finalize selection
   const handleMouseUp = () => {
     if (isSelecting && selectionRect && selectionRect.width > 5 && selectionRect.height > 5) {
+      const rectRight = selectionRect.x + selectionRect.width;
+      const rectBottom = selectionRect.y + selectionRect.height;
+
       // Find all devices within the selection rectangle
       const selectedDevices = topology.devices.filter(device => {
         const deviceRight = device.x + device.width;
         const deviceBottom = device.y + device.height;
-        const rectRight = selectionRect.x + selectionRect.width;
-        const rectBottom = selectionRect.y + selectionRect.height;
 
         // Check if device overlaps with selection rect
         return (
@@ -391,10 +589,29 @@ export default function CanvasStage() {
         );
       });
 
-      if (selectedDevices.length > 0) {
+      // Find all links that pass through the selection rectangle
+      const selectedLinks = topology.links.filter(link => {
+        const points = getLinkPoints(link);
+        if (!points) return false;
+        
+        // Check if line segment intersects with rectangle
+        // Simplified: check if either endpoint or midpoint is in rect
+        const midX = (points.fromX + points.toX) / 2;
+        const midY = (points.fromY + points.toY) / 2;
+        
+        const pointInRect = (x: number, y: number) => 
+          x >= selectionRect.x && x <= rectRight && 
+          y >= selectionRect.y && y <= rectBottom;
+        
+        return pointInRect(points.fromX, points.fromY) || 
+               pointInRect(points.toX, points.toY) || 
+               pointInRect(midX, midY);
+      });
+
+      if (selectedDevices.length > 0 || selectedLinks.length > 0) {
         setSelection({
           deviceIds: selectedDevices.map(d => d.id),
-          linkIds: [],
+          linkIds: selectedLinks.map(l => l.id),
           groupIds: [],
           shapeIds: [],
           textIds: [],
@@ -412,6 +629,9 @@ export default function CanvasStage() {
     setIsSelecting(false);
     setSelectionRect(null);
     setSelectionStart(null);
+    // Stop panning
+    setIsPanning(false);
+    setPanStart(null);
   };
 
   // Handle stage click to deselect (only if not selecting)
@@ -464,36 +684,34 @@ export default function CanvasStage() {
   const handleCanvasClickForWaypoint = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (!linkingMode || !linkSource) return;
 
-    // Get the clicked target's name or check if it's part of a device
-    const target = e.target;
-    const targetName = target.name?.() || '';
-    const parent = target.getParent();
-    const parentName = parent?.name?.() || '';
-
-    // Skip if clicking on a port circle (they have specific handling)
-    // Ports are Circle elements within device Groups
-    if (target.getClassName() === 'Circle' && parent?.getClassName() === 'Group') {
-      return; // Let port click handler manage this
-    }
-
-    // Skip if clicking on a device (Group with device image)
-    if (target.getClassName() === 'Group' ||
-      parentName.includes('device') ||
-      targetName.includes('device')) {
-      return;
-    }
-
-    // For all other clicks (stage, grid lines, preview line, etc.) - add waypoint
+    // Get click position in canvas coordinates
     const stage = e.target.getStage();
     if (!stage) return;
-
     const pos = stage.getPointerPosition();
     if (!pos) return;
+    const clickX = (pos.x - position.x) / scale;
+    const clickY = (pos.y - position.y) / scale;
 
-    const x = (pos.x - position.x) / scale;
-    const y = (pos.y - position.y) / scale;
+    // Check if click is near any port on any device
+    const portClickRadius = 35; // Generous click radius for ports
+    for (const device of topology.devices) {
+      const ports = device.ports?.length > 0 ? device.ports : DEFAULT_PORTS;
+      for (const port of ports) {
+        const portX = device.x + (device.width * port.x);
+        const portY = device.y + (device.height * port.y);
+        const distance = Math.sqrt((clickX - portX) ** 2 + (clickY - portY) ** 2);
+        
+        if (distance < portClickRadius) {
+          // Click is near a port - trigger port connection directly!
+          e.cancelBubble = true;
+          handlePortClick(device.id, port.id);
+          return;
+        }
+      }
+    }
 
-    setPendingWaypoints(prev => [...prev, { x, y }]);
+    // Not near any port - add waypoint
+    setPendingWaypoints(prev => [...prev, { x: clickX, y: clickY }]);
     e.cancelBubble = true;
   };
 
@@ -575,13 +793,26 @@ export default function CanvasStage() {
         });
       }
 
-      // Delete or Backspace - Remove selected items
+      // Delete or Backspace - Remove selected items (but not when typing in input fields)
       if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Don't delete if user is typing in an input field
+        const activeElement = document.activeElement;
+        const isTyping = activeElement && (
+          activeElement.tagName === 'INPUT' ||
+          activeElement.tagName === 'TEXTAREA' ||
+          (activeElement as HTMLElement).isContentEditable
+        );
+        
+        if (isTyping) return; // Skip deletion when typing
+
         selection.deviceIds.forEach(id => {
           dispatch({ type: 'REMOVE_DEVICE', payload: id });
         });
         selection.linkIds.forEach(id => {
           dispatch({ type: 'REMOVE_LINK', payload: id });
+        });
+        selection.shapeIds.forEach(id => {
+          dispatch({ type: 'REMOVE_SHAPE', payload: id });
         });
         setSelection({
           deviceIds: [],
@@ -609,62 +840,137 @@ export default function CanvasStage() {
 
     if (!fromDevice || !toDevice) return null;
 
-    let fromX, fromY, toX, toY;
+    // Get port data
+    const fromPort = link.from.portId ? 
+      (fromDevice.ports.find((p: any) => p.id === link.from.portId) || 
+       DEFAULT_PORTS.find(p => p.id === link.from.portId)) : null;
+    
+    const toPort = link.to.portId ?
+      (toDevice.ports.find((p: any) => p.id === link.to.portId) ||
+       DEFAULT_PORTS.find(p => p.id === link.to.portId)) : null;
 
-    // Calculate Source Point
-    if (link.from.portId) {
-      // Try to find the port in device ports or default ports
-      const port = fromDevice.ports.find((p: any) => p.id === link.from.portId)
-        || DEFAULT_PORTS.find(p => p.id === link.from.portId);
+    // Calculate port positions
+    let fromX = fromPort 
+      ? fromDevice.x + (fromDevice.width * fromPort.x)
+      : fromDevice.x + fromDevice.width / 2;
+    let fromY = fromPort
+      ? fromDevice.y + (fromDevice.height * fromPort.y)
+      : fromDevice.y + fromDevice.height / 2;
+    
+    let toX = toPort
+      ? toDevice.x + (toDevice.width * toPort.x)
+      : toDevice.x + toDevice.width / 2;
+    let toY = toPort
+      ? toDevice.y + (toDevice.height * toPort.y)
+      : toDevice.y + toDevice.height / 2;
 
-      if (port) {
-        fromX = fromDevice.x + (fromDevice.width * port.x);
-        fromY = fromDevice.y + (fromDevice.height * port.y);
-      } else {
-        // Fallback to center if port not found
-        fromX = fromDevice.x + fromDevice.width / 2;
-        fromY = fromDevice.y + fromDevice.height / 2;
-      }
-    } else {
-      // Default to center if no port specified
-      fromX = fromDevice.x + fromDevice.width / 2;
-      fromY = fromDevice.y + fromDevice.height / 2;
+    // Calculate offset based on port position (exit perpendicular to edge)
+    const portOffset = 15;
+    
+    if (fromPort) {
+      // Determine exit direction based on port position
+      if (fromPort.x === 0) fromX -= portOffset; // Left port - exit left
+      else if (fromPort.x === 1) fromX += portOffset; // Right port - exit right
+      else if (fromPort.y === 0) fromY -= portOffset; // Top port - exit up
+      else if (fromPort.y === 1) fromY += portOffset; // Bottom port - exit down
+    }
+    
+    if (toPort) {
+      // Determine entry direction based on port position  
+      if (toPort.x === 0) toX -= portOffset; // Left port - enter from left
+      else if (toPort.x === 1) toX += portOffset; // Right port - enter from right
+      else if (toPort.y === 0) toY -= portOffset; // Top port - enter from top
+      else if (toPort.y === 1) toY += portOffset; // Bottom port - enter from bottom
     }
 
-    // Calculate Target Point
-    if (link.to.portId) {
-      const port = toDevice.ports.find((p: any) => p.id === link.to.portId)
-        || DEFAULT_PORTS.find(p => p.id === link.to.portId);
-
-      if (port) {
-        toX = toDevice.x + (toDevice.width * port.x);
-        toY = toDevice.y + (toDevice.height * port.y);
-      } else {
-        toX = toDevice.x + toDevice.width / 2;
-        toY = toDevice.y + toDevice.height / 2;
+    // If no ports specified, calculate edge intersection (center-to-center line)
+    if (!fromPort && !toPort) {
+      const dx = toX - fromX;
+      const dy = toY - fromY;
+      
+      // Find where line exits fromDevice
+      let t = Infinity;
+      if (dx > 0) t = Math.min(t, (fromDevice.x + fromDevice.width - fromX) / dx);
+      else if (dx < 0) t = Math.min(t, (fromDevice.x - fromX) / dx);
+      if (dy > 0) t = Math.min(t, (fromDevice.y + fromDevice.height - fromY) / dy);
+      else if (dy < 0) t = Math.min(t, (fromDevice.y - fromY) / dy);
+      if (t !== Infinity && t > 0) {
+        fromX = fromX + dx * t;
+        fromY = fromY + dy * t;
       }
-    } else {
-      toX = toDevice.x + toDevice.width / 2;
-      toY = toDevice.y + toDevice.height / 2;
+      
+      // Find where line enters toDevice (from opposite direction)
+      t = Infinity;
+      const toCenterX = toDevice.x + toDevice.width / 2;
+      const toCenterY = toDevice.y + toDevice.height / 2;
+      if (dx < 0) t = Math.min(t, (toDevice.x + toDevice.width - toCenterX) / (-dx));
+      else if (dx > 0) t = Math.min(t, (toDevice.x - toCenterX) / (-dx));
+      if (dy < 0) t = Math.min(t, (toDevice.y + toDevice.height - toCenterY) / (-dy));
+      else if (dy > 0) t = Math.min(t, (toDevice.y - toCenterY) / (-dy));
+      if (t !== Infinity && t > 0) {
+        toX = toCenterX + (-dx) * t;
+        toY = toCenterY + (-dy) * t;
+      }
     }
 
-    // Calculate distance and angle for shortening
-    const dx = toX - fromX;
-    const dy = toY - fromY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    // Shorten by port radius (approx 10-12px) plus a defined margin
-    const padding = 12;
-
-    if (distance > padding * 2) {
-      const angle = Math.atan2(dy, dx);
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
-
-      fromX = fromX + cos * padding;
-      fromY = fromY + sin * padding;
-      toX = toX - cos * padding;
-      toY = toY - sin * padding;
+    // Apply curveOffset for parallel links (perpendicular to line direction)
+    const curveOffset = link.style?.curveOffset || 0;
+    if (curveOffset !== 0) {
+      // First, calculate where the CENTER line (no offset) would exit each device
+      const fromCenterX = fromDevice.x + fromDevice.width / 2;
+      const fromCenterY = fromDevice.y + fromDevice.height / 2;
+      const toCenterX = toDevice.x + toDevice.width / 2;
+      const toCenterY = toDevice.y + toDevice.height / 2;
+      
+      // Direction from center to center
+      const dx = toCenterX - fromCenterX;
+      const dy = toCenterY - fromCenterY;
+      const length = Math.sqrt(dx * dx + dy * dy);
+      
+      if (length > 0) {
+        // Perpendicular unit vector
+        const perpX = -dy / length;
+        const perpY = dx / length;
+        
+        // Helper: find where a ray from center exits the rect
+        const findEdgeExit = (cx: number, cy: number, dirX: number, dirY: number, 
+                              rectX: number, rectY: number, rectW: number, rectH: number) => {
+          let tMin = Infinity;
+          // Check all 4 edges
+          if (dirX > 0) { // Right edge
+            const t = (rectX + rectW - cx) / dirX;
+            if (t > 0 && t < tMin) tMin = t;
+          } else if (dirX < 0) { // Left edge
+            const t = (rectX - cx) / dirX;
+            if (t > 0 && t < tMin) tMin = t;
+          }
+          if (dirY > 0) { // Bottom edge
+            const t = (rectY + rectH - cy) / dirY;
+            if (t > 0 && t < tMin) tMin = t;
+          } else if (dirY < 0) { // Top edge
+            const t = (rectY - cy) / dirY;
+            if (t > 0 && t < tMin) tMin = t;
+          }
+          if (tMin === Infinity) return { x: cx, y: cy };
+          return { x: cx + dirX * tMin, y: cy + dirY * tMin };
+        };
+        
+        // Find edge exit points for the CENTER line
+        const fromCenterEdge = findEdgeExit(
+          fromCenterX, fromCenterY, dx, dy,
+          fromDevice.x, fromDevice.y, fromDevice.width, fromDevice.height
+        );
+        const toCenterEdge = findEdgeExit(
+          toCenterX, toCenterY, -dx, -dy,
+          toDevice.x, toDevice.y, toDevice.width, toDevice.height
+        );
+        
+        // Now apply perpendicular offset to the edge points
+        fromX = fromCenterEdge.x + perpX * curveOffset;
+        fromY = fromCenterEdge.y + perpY * curveOffset;
+        toX = toCenterEdge.x + perpX * curveOffset;
+        toY = toCenterEdge.y + perpY * curveOffset;
+      }
     }
 
     return { fromX, fromY, toX, toY };
@@ -750,6 +1056,50 @@ export default function CanvasStage() {
             />
           ))}
 
+          {/* Zone Shapes - rendered behind devices */}
+          {topology.shapes.map(shape => {
+            const isShapeSelected = selection.shapeIds.includes(shape.id);
+            
+            return (
+              <ZoneShape
+                key={shape.id}
+                shape={shape}
+                isSelected={isShapeSelected}
+                onSelect={() => {
+                  setSelection({
+                    deviceIds: [],
+                    linkIds: [],
+                    groupIds: [],
+                    shapeIds: [shape.id],
+                    textIds: [],
+                  });
+                }}
+                onTransformEnd={(id, width, height, x, y) => {
+                  dispatch({
+                    type: 'UPDATE_SHAPE',
+                    payload: { id, updates: { width, height, x, y } },
+                  });
+                }}
+                onDragEnd={(id, x, y) => {
+                  dispatch({
+                    type: 'UPDATE_SHAPE',
+                    payload: { id, updates: { x, y } },
+                  });
+                }}
+                onDelete={(id) => {
+                  dispatch({ type: 'REMOVE_SHAPE', payload: id });
+                  setSelection({
+                    deviceIds: [],
+                    linkIds: [],
+                    groupIds: [],
+                    shapeIds: [],
+                    textIds: [],
+                  });
+                }}
+              />
+            );
+          })}
+
           {/* Devices */}
           {topology.devices.map(device => (
             <DeviceNode
@@ -796,9 +1146,41 @@ export default function CanvasStage() {
           ))}
 
           {/* Links */}
-          {topology.links.map(link => {
-            const points = getLinkPoints(link);
-            if (!points) return null;
+          {(() => {
+            // Group links by device pair to calculate dynamic offsets
+            const linkGroups: Record<string, typeof topology.links> = {};
+            topology.links.forEach(link => {
+              // Create a consistent key for the device pair (order doesn't matter)
+              const ids = [link.from.deviceId, link.to.deviceId].sort();
+              const key = `${ids[0]}-${ids[1]}`;
+              if (!linkGroups[key]) linkGroups[key] = [];
+              linkGroups[key].push(link);
+            });
+            
+            // Calculate dynamic offset for each link
+            const linkOffsets: Record<string, number> = {};
+            Object.values(linkGroups).forEach(group => {
+              const count = group.length;
+              group.forEach((link, index) => {
+                // Calculate offset: center the group around 0
+                // For 5 links: -50, -25, 0, 25, 50
+                const offset = count > 1 
+                  ? (index - (count - 1) / 2) * 25 
+                  : 0;
+                linkOffsets[link.id] = offset;
+              });
+            });
+            
+            return topology.links.map(link => {
+              // Use dynamic offset instead of stored curveOffset
+              const dynamicOffset = linkOffsets[link.id] || 0;
+              const linkWithDynamicOffset = {
+                ...link,
+                style: { ...link.style, curveOffset: dynamicOffset }
+              };
+              
+              const points = getLinkPoints(linkWithDynamicOffset);
+              if (!points) return null;
 
             const isLinkSelected = selection.linkIds.includes(link.id);
 
@@ -815,13 +1197,26 @@ export default function CanvasStage() {
                 key={link.id}
                 onClick={(e) => {
                   e.cancelBubble = true;
-                  setSelection({
-                    deviceIds: [],
-                    linkIds: [link.id],
-                    groupIds: [],
-                    shapeIds: [],
-                    textIds: [],
-                  });
+                  // Support Ctrl+click for multi-select
+                  if (e.evt.ctrlKey || e.evt.metaKey) {
+                    // Add to or remove from current selection
+                    const isCurrentlySelected = selection.linkIds.includes(link.id);
+                    setSelection({
+                      ...selection,
+                      linkIds: isCurrentlySelected 
+                        ? selection.linkIds.filter(id => id !== link.id) // Toggle off if already selected
+                        : [...selection.linkIds, link.id] // Add to selection
+                    });
+                  } else {
+                    // Replace selection
+                    setSelection({
+                      deviceIds: [],
+                      linkIds: [link.id],
+                      groupIds: [],
+                      shapeIds: [],
+                      textIds: [],
+                    });
+                  }
                 }}
                 onMouseEnter={(e) => {
                   setHoveredLinkId(link.id);
@@ -870,7 +1265,8 @@ export default function CanvasStage() {
                 )}
               </Group>
             );
-          })}
+          });
+          })()}
 
           {/* Preview line during linking */}
           {linkingMode && linkSource && mousePosition && (() => {
@@ -889,6 +1285,29 @@ export default function CanvasStage() {
               previewPoints.push(wp.x, wp.y);
             });
             previewPoints.push(mousePosition.x, mousePosition.y);
+
+            // Calculate angle from last point to mouse
+            const lastX = pendingWaypoints.length > 0 
+              ? pendingWaypoints[pendingWaypoints.length - 1].x 
+              : startX;
+            const lastY = pendingWaypoints.length > 0 
+              ? pendingWaypoints[pendingWaypoints.length - 1].y 
+              : startY;
+            
+            const dx = mousePosition.x - lastX;
+            const dy = mousePosition.y - lastY;
+            const angleRad = Math.atan2(dy, dx);
+            let angleDeg = Math.round(angleRad * (180 / Math.PI));
+            // Normalize to 0-360
+            if (angleDeg < 0) angleDeg += 360;
+            
+            // Determine if angle is close to cardinal direction (±5°)
+            const isCardinal = [0, 90, 180, 270, 360].some(
+              card => Math.abs(angleDeg - card) <= 5 || Math.abs((angleDeg + 360) % 360 - card) <= 5
+            );
+            const is45 = [45, 135, 225, 315].some(
+              diag => Math.abs(angleDeg - diag) <= 5
+            );
 
             return (
               <Group>
@@ -912,6 +1331,28 @@ export default function CanvasStage() {
                     opacity={0.9}
                   />
                 ))}
+                {/* Angle indicator */}
+                <Group x={mousePosition.x + 20} y={mousePosition.y - 30}>
+                  <Rect
+                    x={-5}
+                    y={-5}
+                    width={55}
+                    height={24}
+                    fill={isCardinal ? 'rgba(34, 197, 94, 0.95)' : is45 ? 'rgba(59, 130, 246, 0.95)' : 'rgba(30, 41, 59, 0.95)'}
+                    cornerRadius={6}
+                    stroke={isCardinal ? '#22c55e' : is45 ? '#3b82f6' : '#64748b'}
+                    strokeWidth={1}
+                  />
+                  <Text
+                    x={0}
+                    y={0}
+                    text={`${angleDeg}°`}
+                    fontSize={14}
+                    fontFamily="monospace"
+                    fontStyle="bold"
+                    fill="#ffffff"
+                  />
+                </Group>
               </Group>
             );
           })()}

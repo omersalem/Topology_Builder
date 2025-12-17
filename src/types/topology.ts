@@ -50,6 +50,7 @@ export interface Link {
     color: string;
     width: number;
     dash: number[]; // e.g., [5, 5] for dashed
+    curveOffset?: number; // offset for parallel links
   };
   controlPoints?: { x: number; y: number }[]; // for manual bezier editing
 }
@@ -108,6 +109,7 @@ export interface CanvasConfig {
   snapToGrid: boolean;
   showGrid: boolean;
   backgroundColor: string;
+  panMode?: boolean; // Enable canvas panning mode
 }
 
 export interface TopologyMeta {

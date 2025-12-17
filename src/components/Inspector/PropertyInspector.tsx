@@ -7,6 +7,7 @@ export default function PropertyInspector() {
   // Get selected items
   const selectedDevice = topology.devices.find(d => selection.deviceIds.includes(d.id));
   const selectedLink = topology.links.find(l => selection.linkIds.includes(l.id));
+  const selectedLinks = topology.links.filter(l => selection.linkIds.includes(l.id)); // All selected links
   const selectedGroup = topology.groups.find(g => selection.groupIds.includes(g.id));
   const selectedText = topology.texts.find(t => selection.textIds.includes(t.id));
 
@@ -16,10 +17,11 @@ export default function PropertyInspector() {
     }
   };
 
+  // Update all selected links
   const updateLink = (updates: any) => {
-    if (selectedLink) {
-      dispatch({ type: 'UPDATE_LINK', payload: { id: selectedLink.id, updates } });
-    }
+    selectedLinks.forEach(link => {
+      dispatch({ type: 'UPDATE_LINK', payload: { id: link.id, updates } });
+    });
   };
 
   const updateText = (updates: any) => {
@@ -70,9 +72,10 @@ export default function PropertyInspector() {
     if (selectedDevice) {
       dispatch({ type: 'REMOVE_DEVICE', payload: selectedDevice.id });
     }
-    if (selectedLink) {
-      dispatch({ type: 'REMOVE_LINK', payload: selectedLink.id });
-    }
+    // Delete all selected links
+    selectedLinks.forEach(link => {
+      dispatch({ type: 'REMOVE_LINK', payload: link.id });
+    });
     if (selectedText) {
       dispatch({ type: 'REMOVE_TEXT', payload: selectedText.id });
     }
@@ -115,12 +118,22 @@ export default function PropertyInspector() {
           <>
             <div>
               <label className="block text-xs text-slate-400 mb-1">Label</label>
-              <input
-                type="text"
-                value={selectedDevice.label}
-                onChange={(e) => updateDevice({ label: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-700 text-white rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none text-sm"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={selectedDevice.label}
+                  onChange={(e) => updateDevice({ label: e.target.value })}
+                  className="flex-1 px-3 py-2 bg-slate-700 text-white rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none text-sm"
+                  placeholder="Enter device label"
+                />
+                <button
+                  onClick={() => updateDevice({ label: '' })}
+                  className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors text-sm font-bold"
+                  title="Clear label"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -196,37 +209,88 @@ export default function PropertyInspector() {
         {/* Link Properties */}
         {selectedLink && (
           <>
+            {/* Multi-link selection indicator */}
+            {selectedLinks.length > 1 && (
+              <div className="bg-blue-500/20 border border-blue-500/40 rounded-lg p-3 mb-3">
+                <p className="text-blue-300 text-sm font-medium">
+                  {selectedLinks.length} links selected
+                </p>
+                <p className="text-blue-400/70 text-xs mt-1">
+                  Changes will apply to all selected links
+                </p>
+              </div>
+            )}
             <div>
               <label className="block text-xs text-slate-400 mb-1">Label</label>
               <input
                 type="text"
-                value={selectedLink.label || ''}
+                value={selectedLinks.length > 1 ? '' : (selectedLink.label || '')}
                 onChange={(e) => updateLink({ label: e.target.value })}
                 className="w-full px-3 py-2 bg-slate-700 text-white rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none text-sm"
-                placeholder="Optional label..."
+                placeholder={selectedLinks.length > 1 ? "Set label for all..." : "Optional label..."}
               />
             </div>
 
             <div>
               <label className="block text-xs text-slate-400 mb-1">Color</label>
+              {/* Glassy Color Presets */}
+              <div style={{ display: 'flex', gap: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                {[
+                  { color: '#00d4ff', name: 'Cyan Glow' },
+                  { color: '#ff00ff', name: 'Magenta' },
+                  { color: '#00ff88', name: 'Emerald' },
+                  { color: '#ff6b35', name: 'Orange' },
+                  { color: '#a855f7', name: 'Purple' },
+                  { color: '#fbbf24', name: 'Gold' },
+                  { color: '#ef4444', name: 'Red' },
+                  { color: '#3b82f6', name: 'Blue' },
+                  { color: '#22c55e', name: 'Green' },
+                  { color: '#f472b6', name: 'Pink' },
+                ].map((preset) => (
+                  <button
+                    key={preset.color}
+                    onClick={() => updateLink({ style: { ...selectedLink.style, color: preset.color } })}
+                    title={preset.name}
+                    style={{
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '4px',
+                      border: selectedLink.style.color === preset.color ? '2px solid #fff' : '1px solid rgba(255,255,255,0.3)',
+                      background: `linear-gradient(135deg, ${preset.color} 0%, ${preset.color}88 100%)`,
+                      cursor: 'pointer',
+                      boxShadow: `0 2px 6px ${preset.color}55`,
+                    }}
+                  />
+                ))}
+              </div>
               <input
                 type="color"
                 value={selectedLink.style.color}
                 onChange={(e) => updateLink({ style: { ...selectedLink.style, color: e.target.value } })}
-                className="w-full h-10 bg-slate-700 rounded-lg border border-slate-600 cursor-pointer"
+                className="w-full h-8 bg-slate-700 rounded-lg border border-slate-600 cursor-pointer"
               />
             </div>
 
             <div>
-              <label className="block text-xs text-slate-400 mb-1">Width: {selectedLink.style.width}px</label>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={selectedLink.style.width}
-                onChange={(e) => updateLink({ style: { ...selectedLink.style, width: Number(e.target.value) } })}
-                className="w-full"
-              />
+              <label className="block text-xs text-slate-400 mb-1">Width (px)</label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={selectedLink.style.width}
+                  onChange={(e) => updateLink({ style: { ...selectedLink.style, width: Math.max(1, Math.min(20, Number(e.target.value))) } })}
+                  className="w-16 px-2 py-1.5 bg-slate-700 text-white rounded-lg border border-slate-600 focus:border-blue-500 focus:outline-none text-sm text-center"
+                />
+                <input
+                  type="range"
+                  min="1"
+                  max="20"
+                  value={selectedLink.style.width}
+                  onChange={(e) => updateLink({ style: { ...selectedLink.style, width: Number(e.target.value) } })}
+                  className="flex-1"
+                />
+              </div>
             </div>
 
             <div>

@@ -2,13 +2,14 @@ import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTopology } from '../../context/TopologyContext';
 import { generateId } from '../../utils/geometry';
-import type { Link } from '../../types/topology';
+import type { Link, Shape } from '../../types/topology';
 
 export default function TopToolbar() {
   const { topology, dispatch, setViewport, viewport } = useTopology();
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showTextModal, setShowTextModal] = useState(false);
+  const [showZoneMenu, setShowZoneMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Link creation state
@@ -16,6 +17,9 @@ export default function TopToolbar() {
   const [linkTo, setLinkTo] = useState('');
   const [linkLabel, setLinkLabel] = useState('');
   const [linkColor, setLinkColor] = useState('#22c55e');
+  const [linkWidth, setLinkWidth] = useState(2);
+  const [linkStyle, setLinkStyle] = useState<'solid' | 'dashed' | 'dotted'>('solid');
+  const [linkCount, setLinkCount] = useState(1);
 
   // Text creation state
   const [newText, setNewText] = useState('');
@@ -86,25 +90,65 @@ export default function TopToolbar() {
       return;
     }
 
-    // Allow multiple links between same devices (removed the linkFrom === linkTo check)
-    const newLink: Link = {
-      id: generateId('link'),
-      from: { deviceId: linkFrom },
-      to: { deviceId: linkTo },
-      pathType: 'straight',
-      label: linkLabel || undefined,
-      style: {
-        color: linkColor,
-        width: 2,
-        dash: [],
-      },
+    const dashPatterns: Record<string, number[]> = {
+      solid: [],
+      dashed: [10, 5],
+      dotted: [3, 3],
     };
 
-    dispatch({ type: 'ADD_LINK', payload: newLink });
+    // Create multiple links based on linkCount
+    for (let i = 0; i < linkCount; i++) {
+      // Calculate offset for multiple links (so they don't overlap)
+      // Center the links around the middle
+      const curveOffset = linkCount > 1 
+        ? (i - (linkCount - 1) / 2) * 25 // Spread links by 25px each
+        : 0;
+      
+      const newLink: Link = {
+        id: generateId('link'),
+        from: { deviceId: linkFrom },
+        to: { deviceId: linkTo },
+        pathType: 'straight',
+        label: linkLabel ? (linkCount > 1 ? `${linkLabel} ${i + 1}` : linkLabel) : undefined,
+        style: {
+          color: linkColor,
+          width: linkWidth,
+          dash: dashPatterns[linkStyle] || [],
+          curveOffset: curveOffset, // Store offset for rendering
+        },
+      };
+      dispatch({ type: 'ADD_LINK', payload: newLink });
+    }
+
     setShowLinkModal(false);
     setLinkFrom('');
     setLinkTo('');
     setLinkLabel('');
+    setLinkWidth(2);
+    setLinkStyle('solid');
+    setLinkCount(1);
+  };
+
+  const handleAddZone = (shapeType: 'rectangle' | 'circle' | 'roundedRect') => {
+    const newShape: Shape = {
+      id: generateId('zone'),
+      type: shapeType,
+      x: 200,
+      y: 200,
+      width: 300,
+      height: 200,
+      rotation: 0,
+      style: {
+        fill: 'rgba(59, 130, 246, 0.1)',
+        stroke: '#3b82f6',
+        strokeWidth: 2,
+        opacity: 1,
+      },
+      cornerRadius: shapeType === 'roundedRect' ? 20 : undefined,
+    };
+
+    dispatch({ type: 'ADD_SHAPE', payload: newShape });
+    setShowZoneMenu(false);
   };
 
   const handleAddText = () => {
@@ -428,6 +472,25 @@ export default function TopToolbar() {
               </svg>
               Snap
             </button>
+            <button 
+              onClick={() => {
+                dispatch({
+                  type: 'UPDATE_CANVAS',
+                  payload: { panMode: !topology.canvas.panMode },
+                });
+              }}
+              style={{
+                ...toolbarBtnStyle,
+                background: topology.canvas.panMode ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                color: topology.canvas.panMode ? '#fff' : '#94a3b8',
+                boxShadow: topology.canvas.panMode ? '0 2px 8px rgba(245,158,11,0.4)' : 'none',
+              }}
+            >
+              <svg style={{ width: '14px', height: '14px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11" />
+              </svg>
+              Move
+            </button>
           </div>
         </div>
 
@@ -483,6 +546,108 @@ export default function TopToolbar() {
             </svg>
             Add Text
           </button>
+          
+          {/* Zone Dropdown */}
+          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setShowZoneMenu(!showZoneMenu)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#fff',
+                background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 10px rgba(6, 182, 212, 0.35)',
+                transition: 'all 0.2s',
+              }}
+              onMouseOver={e => {e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(6, 182, 212, 0.5)'}}
+              onMouseOut={e => {e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(6, 182, 212, 0.35)'}}
+            >
+              <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z" />
+              </svg>
+              Add Zone
+              <svg style={{ width: '10px', height: '10px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {showZoneMenu && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                marginTop: '6px',
+                background: 'linear-gradient(180deg, #252d3d 0%, #1a2030 100%)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '10px',
+                boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+                overflow: 'hidden',
+                minWidth: '160px',
+                zIndex: 100,
+              }}>
+                <button onClick={() => handleAddZone('rectangle')} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  width: '100%',
+                  padding: '10px 14px',
+                  fontSize: '13px',
+                  textAlign: 'left',
+                  color: '#cbd5e1',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                }} onMouseOver={e => e.currentTarget.style.background = 'rgba(6,182,212,0.2)'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                  <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z" />
+                  </svg>
+                  Rectangle
+                </button>
+                <button onClick={() => handleAddZone('roundedRect')} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  width: '100%',
+                  padding: '10px 14px',
+                  fontSize: '13px',
+                  textAlign: 'left',
+                  color: '#cbd5e1',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                }} onMouseOver={e => e.currentTarget.style.background = 'rgba(6,182,212,0.2)'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                  <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <rect x="4" y="4" width="16" height="16" rx="4" strokeWidth={2} />
+                  </svg>
+                  Rounded Rect
+                </button>
+                <button onClick={() => handleAddZone('circle')} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  width: '100%',
+                  padding: '10px 14px',
+                  fontSize: '13px',
+                  textAlign: 'left',
+                  color: '#cbd5e1',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                }} onMouseOver={e => e.currentTarget.style.background = 'rgba(6,182,212,0.2)'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                  <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="8" strokeWidth={2} />
+                  </svg>
+                  Circle
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right section - Stats */}
@@ -557,11 +722,81 @@ export default function TopToolbar() {
               
               <div>
                 <label style={labelStyle}>Color</label>
+                {/* Glassy Color Presets */}
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                  {[
+                    { color: '#00d4ff', name: 'Cyan Glow' },
+                    { color: '#ff00ff', name: 'Magenta' },
+                    { color: '#00ff88', name: 'Emerald' },
+                    { color: '#ff6b35', name: 'Orange' },
+                    { color: '#a855f7', name: 'Purple' },
+                    { color: '#fbbf24', name: 'Gold' },
+                    { color: '#ef4444', name: 'Red' },
+                    { color: '#3b82f6', name: 'Blue' },
+                    { color: '#22c55e', name: 'Green' },
+                    { color: '#f472b6', name: 'Pink' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.color}
+                      onClick={() => setLinkColor(preset.color)}
+                      title={preset.name}
+                      style={{
+                        width: '28px',
+                        height: '28px',
+                        borderRadius: '6px',
+                        border: linkColor === preset.color ? '3px solid #fff' : '2px solid rgba(255,255,255,0.3)',
+                        background: `linear-gradient(135deg, ${preset.color} 0%, ${preset.color}88 100%)`,
+                        cursor: 'pointer',
+                        boxShadow: `0 2px 8px ${preset.color}66`,
+                        transition: 'all 0.2s',
+                      }}
+                    />
+                  ))}
+                </div>
                 <input 
                   type="color" 
                   value={linkColor}
                   onChange={(e) => setLinkColor(e.target.value)}
-                  style={{ ...inputStyle, height: '44px', cursor: 'pointer' }}
+                  style={{ ...inputStyle, height: '36px', cursor: 'pointer' }}
+                />
+              </div>
+              
+              <div>
+                <label style={labelStyle}>Line Width (px)</label>
+                <input 
+                  type="number" 
+                  min={1}
+                  max={20}
+                  value={linkWidth}
+                  onChange={(e) => setLinkWidth(Math.max(1, Math.min(20, Number(e.target.value))))}
+                  style={inputStyle}
+                  placeholder="1-20"
+                />
+              </div>
+              
+              <div>
+                <label style={labelStyle}>Line Style</label>
+                <select 
+                  value={linkStyle} 
+                  onChange={(e) => setLinkStyle(e.target.value as 'solid' | 'dashed' | 'dotted')}
+                  style={inputStyle}
+                >
+                  <option value="solid">Solid ─────</option>
+                  <option value="dashed">Dashed ─ ─ ─</option>
+                  <option value="dotted">Dotted ·····</option>
+                </select>
+              </div>
+              
+              <div>
+                <label style={labelStyle}>Number of Links</label>
+                <input 
+                  type="number" 
+                  min={1}
+                  max={10}
+                  value={linkCount}
+                  onChange={(e) => setLinkCount(Math.max(1, Math.min(10, Number(e.target.value))))}
+                  style={inputStyle}
+                  placeholder="1-10"
                 />
               </div>
             </div>
