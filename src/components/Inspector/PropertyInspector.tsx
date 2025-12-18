@@ -136,6 +136,46 @@ export default function PropertyInspector() {
               </div>
             </div>
 
+            {/* Label Styling */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Label Color</label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={selectedDevice.style.labelColor || '#ffffff'}
+                    onChange={(e) => updateDevice({ style: { ...selectedDevice.style, labelColor: e.target.value } })}
+                    className="w-10 h-8 bg-slate-700 rounded border border-slate-600 cursor-pointer"
+                  />
+                  <div className="flex gap-1">
+                    {['#ffffff', '#22c55e', '#3b82f6', '#f59e0b', '#ef4444'].map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => updateDevice({ style: { ...selectedDevice.style, labelColor: color } })}
+                        className="w-6 h-6 rounded border border-slate-500"
+                        style={{ backgroundColor: color }}
+                        title={color}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Label Size</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="8"
+                    max="24"
+                    value={selectedDevice.style.labelSize || 12}
+                    onChange={(e) => updateDevice({ style: { ...selectedDevice.style, labelSize: Number(e.target.value) } })}
+                    className="flex-1"
+                  />
+                  <span className="text-xs text-slate-300 w-6">{selectedDevice.style.labelSize || 12}</span>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-slate-400 mb-1">X</label>

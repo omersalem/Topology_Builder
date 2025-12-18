@@ -31,6 +31,10 @@ export interface Device {
   ports: Port[];
   style: {
     opacity: number;
+    labelColor?: string; // Label text color
+    labelSize?: number; // Label font size in pixels
+    labelOffsetX?: number; // Label X offset from default position
+    labelOffsetY?: number; // Label Y offset from default position
   };
   zIndex?: number;
 }

@@ -35,16 +35,18 @@ function DeviceNode({
   onDragEnd,
   onPortClick,
   onPortMove,
+  onLabelMove,
   linkingMode,
 }: {
   device: any;
   isSelected: boolean;
   image: HTMLImageElement | null;
-  onSelect: () => void;
+  onSelect: (e: any) => void;
   onTransformEnd: (id: string, width: number, height: number, x: number, y: number) => void;
   onDragEnd: (id: string, x: number, y: number) => void;
   onPortClick: (deviceId: string, portId: string) => void;
   onPortMove: (deviceId: string, portId: string, x: number, y: number) => void;
+  onLabelMove: (deviceId: string, offsetX: number, offsetY: number) => void;
   linkingMode: boolean;
 }) {
   const shapeRef = useRef<Konva.Group>(null);
@@ -77,11 +79,11 @@ function DeviceNode({
         draggable
         onClick={(e) => {
           e.cancelBubble = true;
-          onSelect();
+          onSelect(e);
         }}
         onTap={(e) => {
           e.cancelBubble = true;
-          onSelect();
+          onSelect(e);
         }}
         onDragEnd={(e) => {
           onDragEnd(device.id, e.target.x(), e.target.y());
@@ -135,21 +137,6 @@ function DeviceNode({
             image={image}
           />
         )}
-
-        {/* Device label */}
-        <Text
-          x={0}
-          y={device.height - 18}
-          width={device.width}
-          text={device.label}
-          fontSize={12}
-          fontFamily="Arial"
-          fontStyle="bold"
-          fill="#ffffff"
-          align="center"
-          shadowColor="black"
-          shadowBlur={4}
-        />
 
         {/* Ports with hover labels - draggable to reposition */}
         {showPorts && displayPorts.map((port: any, index: number) => {
@@ -265,6 +252,35 @@ function DeviceNode({
           borderDash={[4, 4]}
         />
       )}
+
+      {/* Device label - rendered outside Group so it doesn't affect Transformer bounds */}
+      <Text
+        x={device.x + (device.style?.labelOffsetX || 0)}
+        y={device.y + device.height + 5 + (device.style?.labelOffsetY || 0)}
+        width={device.width}
+        text={device.label}
+        fontSize={device.style?.labelSize || 12}
+        fontFamily="Arial"
+        fontStyle="bold"
+        fill={device.style?.labelColor || '#ffffff'}
+        align="center"
+        shadowColor="black"
+        shadowBlur={4}
+        draggable
+        onDragEnd={(e) => {
+          const newOffsetX = e.target.x() - device.x;
+          const newOffsetY = e.target.y() - device.y - device.height - 5;
+          onLabelMove(device.id, newOffsetX, newOffsetY);
+        }}
+        onMouseEnter={(e) => {
+          const container = e.target.getStage()?.container();
+          if (container) container.style.cursor = 'move';
+        }}
+        onMouseLeave={(e) => {
+          const container = e.target.getStage()?.container();
+          if (container) container.style.cursor = 'default';
+        }}
+      />
     </>
   );
 }
@@ -1107,14 +1123,26 @@ export default function CanvasStage() {
               device={device}
               isSelected={selection.deviceIds.includes(device.id)}
               image={images[device.assetId] || null}
-              onSelect={() => {
-                setSelection({
-                  deviceIds: [device.id],
-                  linkIds: [],
-                  groupIds: [],
-                  shapeIds: [],
-                  textIds: [],
-                });
+              onSelect={(e) => {
+                // Support Ctrl+click for multi-select
+                if (e.evt?.ctrlKey || e.evt?.metaKey) {
+                  const isCurrentlySelected = selection.deviceIds.includes(device.id);
+                  setSelection({
+                    ...selection,
+                    deviceIds: isCurrentlySelected 
+                      ? selection.deviceIds.filter(id => id !== device.id) // Toggle off
+                      : [...selection.deviceIds, device.id] // Add to selection
+                  });
+                } else {
+                  // Replace selection
+                  setSelection({
+                    deviceIds: [device.id],
+                    linkIds: [],
+                    groupIds: [],
+                    shapeIds: [],
+                    textIds: [],
+                  });
+                }
               }}
               onTransformEnd={(id, width, height, x, y) => {
                 dispatch({
@@ -1122,11 +1150,32 @@ export default function CanvasStage() {
                   payload: { id, updates: { width, height, x, y } },
                 });
               }}
-              onDragEnd={(id, x, y) => {
-                dispatch({
-                  type: 'UPDATE_DEVICE',
-                  payload: { id, updates: { x, y } },
-                });
+              onDragEnd={(id, newX, newY) => {
+                // If multiple devices selected, move them all together
+                if (selection.deviceIds.length > 1 && selection.deviceIds.includes(id)) {
+                  const draggedDevice = topology.devices.find(d => d.id === id);
+                  if (draggedDevice) {
+                    const deltaX = newX - draggedDevice.x;
+                    const deltaY = newY - draggedDevice.y;
+                    
+                    // Move all selected devices by the same delta
+                    selection.deviceIds.forEach(deviceId => {
+                      const dev = topology.devices.find(d => d.id === deviceId);
+                      if (dev) {
+                        dispatch({
+                          type: 'UPDATE_DEVICE',
+                          payload: { id: deviceId, updates: { x: dev.x + deltaX, y: dev.y + deltaY } },
+                        });
+                      }
+                    });
+                  }
+                } else {
+                  // Single device drag
+                  dispatch({
+                    type: 'UPDATE_DEVICE',
+                    payload: { id, updates: { x: newX, y: newY } },
+                  });
+                }
               }}
               onPortClick={handlePortClick}
               onPortMove={(deviceId, portId, x, y) => {
@@ -1138,6 +1187,24 @@ export default function CanvasStage() {
                   dispatch({
                     type: 'UPDATE_DEVICE',
                     payload: { id: deviceId, updates: { ports: updatedPorts } },
+                  });
+                }
+              }}
+              onLabelMove={(deviceId, offsetX, offsetY) => {
+                const device = topology.devices.find(d => d.id === deviceId);
+                if (device) {
+                  dispatch({
+                    type: 'UPDATE_DEVICE',
+                    payload: { 
+                      id: deviceId, 
+                      updates: { 
+                        style: { 
+                          ...device.style, 
+                          labelOffsetX: offsetX, 
+                          labelOffsetY: offsetY 
+                        } 
+                      } 
+                    },
                   });
                 }
               }}
