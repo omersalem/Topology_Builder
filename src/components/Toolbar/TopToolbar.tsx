@@ -1,11 +1,13 @@
 import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTopology } from '../../context/TopologyContext';
+import { useTheme } from '../../context/ThemeContext';
 import { generateId } from '../../utils/geometry';
 import type { Link, Shape } from '../../types/topology';
 
 export default function TopToolbar() {
-  const { topology, dispatch, setViewport, viewport } = useTopology();
+  const { theme, toggleTheme } = useTheme();
+  const { topology, dispatch, setViewport, viewport, undo, redo, canUndo, canRedo } = useTopology();
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [showTextModal, setShowTextModal] = useState(false);
@@ -19,6 +21,7 @@ export default function TopToolbar() {
   const [linkColor, setLinkColor] = useState('#22c55e');
   const [linkWidth, setLinkWidth] = useState(2);
   const [linkStyle, setLinkStyle] = useState<'solid' | 'dashed' | 'dotted'>('solid');
+  const [linkArrowType, setLinkArrowType] = useState<'none' | 'end' | 'both'>('end');
   const [linkCount, setLinkCount] = useState(1);
 
   // Text creation state
@@ -100,10 +103,10 @@ export default function TopToolbar() {
     for (let i = 0; i < linkCount; i++) {
       // Calculate offset for multiple links (so they don't overlap)
       // Center the links around the middle
-      const curveOffset = linkCount > 1 
+      const curveOffset = linkCount > 1
         ? (i - (linkCount - 1) / 2) * 25 // Spread links by 25px each
         : 0;
-      
+
       const newLink: Link = {
         id: generateId('link'),
         from: { deviceId: linkFrom },
@@ -115,6 +118,7 @@ export default function TopToolbar() {
           width: linkWidth,
           dash: dashPatterns[linkStyle] || [],
           curveOffset: curveOffset, // Store offset for rendering
+          arrowType: linkArrowType,
         },
       };
       dispatch({ type: 'ADD_LINK', payload: newLink });
@@ -126,6 +130,7 @@ export default function TopToolbar() {
     setLinkLabel('');
     setLinkWidth(2);
     setLinkStyle('solid');
+    setLinkArrowType('end');
     setLinkCount(1);
   };
 
@@ -207,21 +212,21 @@ export default function TopToolbar() {
   };
 
   const modalContentStyle: React.CSSProperties = {
-    backgroundColor: '#1e293b',
+    backgroundColor: 'var(--bg-panel)',
     borderRadius: '12px',
     padding: '24px',
     width: '400px',
     maxWidth: '90vw',
     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-    border: '1px solid #475569',
+    border: '1px solid var(--border-color)',
   };
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '10px 12px',
-    backgroundColor: '#334155',
-    color: '#ffffff',
-    border: '1px solid #475569',
+    backgroundColor: 'var(--bg-input)',
+    color: 'var(--text-main)',
+    border: '1px solid var(--border-color)',
     borderRadius: '8px',
     fontSize: '14px',
     outline: 'none',
@@ -231,7 +236,7 @@ export default function TopToolbar() {
     display: 'block',
     marginBottom: '6px',
     fontSize: '14px',
-    color: '#94a3b8',
+    color: 'var(--text-muted)',
   };
 
   const buttonStyle: React.CSSProperties = {
@@ -251,7 +256,7 @@ export default function TopToolbar() {
     padding: '6px 10px',
     fontSize: '12px',
     fontWeight: 500,
-    color: '#94a3b8',
+    color: 'var(--text-muted)',
     background: 'transparent',
     border: 'none',
     borderRadius: '6px',
@@ -265,7 +270,7 @@ export default function TopToolbar() {
     justifyContent: 'center',
     width: '28px',
     height: '28px',
-    color: '#94a3b8',
+    color: 'var(--text-muted)',
     background: 'transparent',
     border: 'none',
     borderRadius: '6px',
@@ -277,20 +282,21 @@ export default function TopToolbar() {
     <>
       <div style={{
         height: '56px',
-        background: 'linear-gradient(180deg, #1a1f2e 0%, #0f1319 100%)',
-        borderBottom: '1px solid rgba(59, 130, 246, 0.3)',
+        backgroundColor: 'var(--bg-header)',
+        borderBottom: '1px solid var(--border-color)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 16px',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.05)',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255,255,255,0.05)',
         position: 'relative',
         zIndex: 50,
+        transition: 'background-color 0.2s',
       }}>
         {/* Left section - Logo & File Operations */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginRight: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginRight: '10px' }}>
             <div style={{
               width: '36px',
               height: '36px',
@@ -305,10 +311,32 @@ export default function TopToolbar() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
               </svg>
             </div>
-            <span style={{ color: 'white', fontWeight: 700, fontSize: '15px', letterSpacing: '-0.3px' }}>
+            <span style={{ color: 'var(--text-main)', fontWeight: 700, fontSize: '15px', letterSpacing: '-0.3px' }}>
               NetTopo
             </span>
           </div>
+
+          <button
+            onClick={toggleTheme}
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            style={{
+              marginRight: '15px',
+              background: 'transparent',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              padding: '6px 10px',
+              cursor: 'pointer',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px'
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'var(--bg-item-hover)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+          >
+            <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
+          </button>
 
           {/* File Group */}
           <div style={{
@@ -319,22 +347,22 @@ export default function TopToolbar() {
             padding: '4px',
             border: '1px solid rgba(255,255,255,0.06)',
           }}>
-            <button onClick={handleNew} style={{...toolbarBtnStyle, minWidth: '60px'}}>
+            <button onClick={handleNew} style={{ ...toolbarBtnStyle, minWidth: '60px' }}>
               <svg style={{ width: '14px', height: '14px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
               New
             </button>
-            <button onClick={handleImport} style={{...toolbarBtnStyle, minWidth: '70px'}}>
+            <button onClick={handleImport} style={{ ...toolbarBtnStyle, minWidth: '70px' }}>
               <svg style={{ width: '14px', height: '14px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
               Import
             </button>
             <div style={{ position: 'relative' }}>
-              <button 
-                onClick={() => setShowExportMenu(!showExportMenu)} 
-                style={{...toolbarBtnStyle, minWidth: '75px'}}
+              <button
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                style={{ ...toolbarBtnStyle, minWidth: '75px' }}
               >
                 <svg style={{ width: '14px', height: '14px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -388,6 +416,46 @@ export default function TopToolbar() {
             </div>
           </div>
 
+          {/* History Group */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            background: 'rgba(255,255,255,0.03)',
+            borderRadius: '8px',
+            padding: '4px',
+            border: '1px solid rgba(255,255,255,0.06)',
+            marginLeft: '12px'
+          }}>
+            <button
+              onClick={undo}
+              disabled={!canUndo}
+              style={{
+                ...toolbarBtnStyle,
+                opacity: canUndo ? 1 : 0.5,
+                cursor: canUndo ? 'pointer' : 'not-allowed'
+              }}
+              title="Undo (Ctrl+Z)"
+            >
+              <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+            </button>
+            <button
+              onClick={redo}
+              disabled={!canRedo}
+              style={{
+                ...toolbarBtnStyle,
+                opacity: canRedo ? 1 : 0.5,
+                cursor: canRedo ? 'pointer' : 'not-allowed'
+              }}
+              title="Redo (Ctrl+Y)"
+            >
+              <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
+              </svg>
+            </button>
+          </div>
+
           {/* Divider */}
           <div style={{ width: '1px', height: '28px', background: 'linear-gradient(180deg, transparent, rgba(255,255,255,0.15), transparent)', margin: '0 12px' }} />
 
@@ -401,22 +469,22 @@ export default function TopToolbar() {
             border: '1px solid rgba(255,255,255,0.06)',
             gap: '4px',
           }}>
-            <button onClick={handleZoomOut} style={{...iconBtnStyle}}>
+            <button onClick={handleZoomOut} style={{ ...iconBtnStyle }}>
               <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
               </svg>
             </button>
-            <span style={{ 
-              color: '#94a3b8', 
-              fontSize: '12px', 
+            <span style={{
+              color: '#94a3b8',
+              fontSize: '12px',
               fontWeight: 600,
-              minWidth: '42px', 
+              minWidth: '42px',
               textAlign: 'center',
               background: 'rgba(0,0,0,0.2)',
               padding: '4px 8px',
               borderRadius: '4px',
             }}>{Math.round(viewport.scale * 100)}%</span>
-            <button onClick={handleZoomIn} style={{...iconBtnStyle}}>
+            <button onClick={handleZoomIn} style={{ ...iconBtnStyle }}>
               <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
               </svg>
@@ -430,7 +498,7 @@ export default function TopToolbar() {
               cursor: 'pointer',
               borderRadius: '4px',
               fontWeight: 500,
-            }} onMouseOver={e => {e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}} onMouseOut={e => {e.currentTarget.style.color = '#64748b'; e.currentTarget.style.background = 'transparent'}}>
+            }} onMouseOver={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }} onMouseOut={e => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.background = 'transparent' }}>
               Reset
             </button>
           </div>
@@ -444,8 +512,8 @@ export default function TopToolbar() {
             alignItems: 'center',
             gap: '4px',
           }}>
-            <button 
-              onClick={toggleGrid} 
+            <button
+              onClick={toggleGrid}
               style={{
                 ...toolbarBtnStyle,
                 background: topology.canvas.showGrid ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
@@ -458,8 +526,8 @@ export default function TopToolbar() {
               </svg>
               Grid
             </button>
-            <button 
-              onClick={toggleSnap} 
+            <button
+              onClick={toggleSnap}
               style={{
                 ...toolbarBtnStyle,
                 background: topology.canvas.snapToGrid ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
@@ -472,7 +540,7 @@ export default function TopToolbar() {
               </svg>
               Snap
             </button>
-            <button 
+            <button
               onClick={() => {
                 dispatch({
                   type: 'UPDATE_CANVAS',
@@ -496,7 +564,7 @@ export default function TopToolbar() {
 
         {/* Right section - Tools */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button 
+          <button
             onClick={() => setShowLinkModal(true)}
             style={{
               display: 'flex',
@@ -513,15 +581,15 @@ export default function TopToolbar() {
               boxShadow: '0 2px 10px rgba(16, 185, 129, 0.35)',
               transition: 'all 0.2s',
             }}
-            onMouseOver={e => {e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(16, 185, 129, 0.5)'}}
-            onMouseOut={e => {e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(16, 185, 129, 0.35)'}}
+            onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(16, 185, 129, 0.5)' }}
+            onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(16, 185, 129, 0.35)' }}
           >
             <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
             Add Link
           </button>
-          <button 
+          <button
             onClick={() => setShowTextModal(true)}
             style={{
               display: 'flex',
@@ -538,18 +606,18 @@ export default function TopToolbar() {
               boxShadow: '0 2px 10px rgba(139, 92, 246, 0.35)',
               transition: 'all 0.2s',
             }}
-            onMouseOver={e => {e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(139, 92, 246, 0.5)'}}
-            onMouseOut={e => {e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(139, 92, 246, 0.35)'}}
+            onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(139, 92, 246, 0.5)' }}
+            onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(139, 92, 246, 0.35)' }}
           >
             <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
             </svg>
             Add Text
           </button>
-          
+
           {/* Zone Dropdown */}
           <div style={{ position: 'relative' }}>
-            <button 
+            <button
               onClick={() => setShowZoneMenu(!showZoneMenu)}
               style={{
                 display: 'flex',
@@ -566,8 +634,8 @@ export default function TopToolbar() {
                 boxShadow: '0 2px 10px rgba(6, 182, 212, 0.35)',
                 transition: 'all 0.2s',
               }}
-              onMouseOver={e => {e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(6, 182, 212, 0.5)'}}
-              onMouseOut={e => {e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(6, 182, 212, 0.35)'}}
+              onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(6, 182, 212, 0.5)' }}
+              onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(6, 182, 212, 0.35)' }}
             >
               <svg style={{ width: '16px', height: '16px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z" />
@@ -679,12 +747,12 @@ export default function TopToolbar() {
             <h3 style={{ fontSize: '20px', fontWeight: 'bold', color: '#ffffff', marginBottom: '20px' }}>
               Create Link
             </h3>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={labelStyle}>From Device</label>
-                <select 
-                  value={linkFrom} 
+                <select
+                  value={linkFrom}
                   onChange={(e) => setLinkFrom(e.target.value)}
                   style={inputStyle}
                 >
@@ -694,11 +762,11 @@ export default function TopToolbar() {
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label style={labelStyle}>To Device</label>
-                <select 
-                  value={linkTo} 
+                <select
+                  value={linkTo}
                   onChange={(e) => setLinkTo(e.target.value)}
                   style={inputStyle}
                 >
@@ -708,18 +776,18 @@ export default function TopToolbar() {
                   ))}
                 </select>
               </div>
-              
+
               <div>
                 <label style={labelStyle}>Label (optional)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={linkLabel}
                   onChange={(e) => setLinkLabel(e.target.value)}
                   placeholder="e.g., 10Gbps"
                   style={inputStyle}
                 />
               </div>
-              
+
               <div>
                 <label style={labelStyle}>Color</label>
                 {/* Glassy Color Presets */}
@@ -753,18 +821,18 @@ export default function TopToolbar() {
                     />
                   ))}
                 </div>
-                <input 
-                  type="color" 
+                <input
+                  type="color"
                   value={linkColor}
                   onChange={(e) => setLinkColor(e.target.value)}
                   style={{ ...inputStyle, height: '36px', cursor: 'pointer' }}
                 />
               </div>
-              
+
               <div>
                 <label style={labelStyle}>Line Width (px)</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   min={1}
                   max={20}
                   value={linkWidth}
@@ -773,11 +841,11 @@ export default function TopToolbar() {
                   placeholder="1-20"
                 />
               </div>
-              
+
               <div>
                 <label style={labelStyle}>Line Style</label>
-                <select 
-                  value={linkStyle} 
+                <select
+                  value={linkStyle}
                   onChange={(e) => setLinkStyle(e.target.value as 'solid' | 'dashed' | 'dotted')}
                   style={inputStyle}
                 >
@@ -786,11 +854,24 @@ export default function TopToolbar() {
                   <option value="dotted">Dotted ·····</option>
                 </select>
               </div>
-              
+
+              <div>
+                <label style={labelStyle}>Arrow Type</label>
+                <select
+                  value={linkArrowType}
+                  onChange={(e) => setLinkArrowType(e.target.value as 'none' | 'end' | 'both')}
+                  style={inputStyle}
+                >
+                  <option value="none">None ────</option>
+                  <option value="end">End ────→</option>
+                  <option value="both">Both ←──→</option>
+                </select>
+              </div>
+
               <div>
                 <label style={labelStyle}>Number of Links</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   min={1}
                   max={10}
                   value={linkCount}
@@ -800,15 +881,15 @@ export default function TopToolbar() {
                 />
               </div>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-              <button 
+              <button
                 onClick={() => setShowLinkModal(false)}
                 style={{ ...buttonStyle, backgroundColor: '#475569', color: '#e2e8f0' }}
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={handleCreateLink}
                 style={{ ...buttonStyle, backgroundColor: '#16a34a', color: '#ffffff' }}
               >
@@ -827,11 +908,11 @@ export default function TopToolbar() {
             <h3 style={{ fontSize: '20px', fontWeight: 'bold', color: '#ffffff', marginBottom: '20px' }}>
               Add Text
             </h3>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={labelStyle}>Text</label>
-                <textarea 
+                <textarea
                   value={newText}
                   onChange={(e) => setNewText(e.target.value)}
                   placeholder="Enter text..."
@@ -839,12 +920,12 @@ export default function TopToolbar() {
                   style={{ ...inputStyle, resize: 'none' }}
                 />
               </div>
-              
+
               <div style={{ display: 'flex', gap: '16px' }}>
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>Size</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     value={textSize}
                     onChange={(e) => setTextSize(Number(e.target.value))}
                     min={8}
@@ -854,8 +935,8 @@ export default function TopToolbar() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>Color</label>
-                  <input 
-                    type="color" 
+                  <input
+                    type="color"
                     value={textColor}
                     onChange={(e) => setTextColor(e.target.value)}
                     style={{ ...inputStyle, height: '44px', cursor: 'pointer' }}
@@ -863,15 +944,15 @@ export default function TopToolbar() {
                 </div>
               </div>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-              <button 
+              <button
                 onClick={() => setShowTextModal(false)}
                 style={{ ...buttonStyle, backgroundColor: '#475569', color: '#e2e8f0' }}
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={handleAddText}
                 style={{ ...buttonStyle, backgroundColor: '#9333ea', color: '#ffffff' }}
               >

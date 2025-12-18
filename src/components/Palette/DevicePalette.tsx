@@ -4,7 +4,7 @@ import { builtInAssets, assetCategories } from '../../assets/builtInAssets';
 import { generateId } from '../../utils/geometry';
 
 export default function DevicePalette() {
-  const { topology, dispatch } = useTopology();
+  const { topology, dispatch, editorState, setEditorState } = useTopology();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
@@ -30,8 +30,8 @@ export default function DevicePalette() {
       label: asset.name,
       x: 300 + Math.random() * 200,
       y: 200 + Math.random() * 200,
-      width: asset.defaultWidth || 100,
-      height: asset.defaultHeight || 100,
+      width: editorState.defaultDeviceSize?.width || 100,
+      height: editorState.defaultDeviceSize?.height || 100,
       rotation: 0,
       ports: [],
       style: { opacity: 1 },
@@ -40,7 +40,13 @@ export default function DevicePalette() {
   };
 
   const handleDragStart = (e: DragEvent<HTMLDivElement>, asset: any) => {
-    e.dataTransfer.setData('application/json', JSON.stringify(asset));
+    // Pass current default size in drag data so canvas can use it
+    const dragData = {
+      ...asset,
+      defaultWidth: editorState.defaultDeviceSize?.width || 100,
+      defaultHeight: editorState.defaultDeviceSize?.height || 100,
+    };
+    e.dataTransfer.setData('application/json', JSON.stringify(dragData));
     e.dataTransfer.effectAllowed = 'copy';
   };
 
@@ -48,11 +54,12 @@ export default function DevicePalette() {
     <div style={{
       width: '280px',
       height: '100%',
-      backgroundColor: '#1e293b',
-      borderRight: '1px solid #334155',
+      backgroundColor: 'var(--bg-panel)',
+      borderRight: '1px solid var(--border-color)',
       display: 'flex',
       flexDirection: 'column',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      transition: 'background-color 0.2s',
     }}>
       {/* Header */}
       <div style={{
@@ -61,7 +68,63 @@ export default function DevicePalette() {
         color: 'white'
       }}>
         <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>📦 Device Palette</h2>
-        <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 1, color: '#e2e8f0' }}>Click or drag to add devices</p>
+        <p style={{ margin: '4px 0 10px 0', fontSize: '12px', opacity: 1, color: '#e2e8f0' }}>Click or drag to add devices</p>
+
+        {/* Default Size Controls */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          alignItems: 'center',
+          background: 'rgba(255,255,255,0.1)',
+          padding: '8px',
+          borderRadius: '6px',
+          marginTop: '8px'
+        }}>
+          <span style={{ fontSize: '11px', fontWeight: '600' }}>Default Size:</span>
+          <input
+            type="number"
+            value={editorState.defaultDeviceSize?.width || 100}
+            onChange={(e) => setEditorState({
+              defaultDeviceSize: {
+                width: parseInt(e.target.value) || 60,
+                height: editorState.defaultDeviceSize?.height || 100
+              }
+            })}
+            style={{
+              width: '45px',
+              padding: '2px 4px',
+              fontSize: '11px',
+              borderRadius: '4px',
+              border: 'none',
+              background: 'rgba(0,0,0,0.3)',
+              color: 'white',
+              textAlign: 'center'
+            }}
+            title="Width"
+          />
+          <span style={{ fontSize: '11px' }}>x</span>
+          <input
+            type="number"
+            value={editorState.defaultDeviceSize?.height || 100}
+            onChange={(e) => setEditorState({
+              defaultDeviceSize: {
+                width: editorState.defaultDeviceSize?.width || 100,
+                height: parseInt(e.target.value) || 60
+              }
+            })}
+            style={{
+              width: '45px',
+              padding: '2px 4px',
+              fontSize: '11px',
+              borderRadius: '4px',
+              border: 'none',
+              background: 'rgba(0,0,0,0.3)',
+              color: 'white',
+              textAlign: 'center'
+            }}
+            title="Height"
+          />
+        </div>
       </div>
 
       {/* Search */}
@@ -74,12 +137,13 @@ export default function DevicePalette() {
           style={{
             width: '100%',
             padding: '10px 12px',
-            backgroundColor: '#334155',
-            border: '1px solid #475569',
+            backgroundColor: 'var(--bg-input)',
+            border: '1px solid var(--border-color)',
             borderRadius: '8px',
-            color: 'white',
+            color: 'var(--text-main)',
             fontSize: '14px',
-            outline: 'none'
+            outline: 'none',
+            transition: 'background-color 0.2s',
           }}
         />
       </div>
@@ -103,8 +167,8 @@ export default function DevicePalette() {
               borderRadius: '16px',
               border: 'none',
               cursor: 'pointer',
-              backgroundColor: selectedCategory === category ? '#3b82f6' : '#475569',
-              color: 'white',
+              backgroundColor: selectedCategory === category ? 'var(--accent)' : 'var(--bg-item)',
+              color: selectedCategory === category ? 'white' : 'var(--text-muted)',
               transition: 'all 0.2s'
             }}
           >
@@ -128,7 +192,7 @@ export default function DevicePalette() {
             gridColumn: 'span 2',
             textAlign: 'center',
             padding: '40px 0',
-            color: '#64748b'
+            color: 'var(--text-muted)'
           }}>
             <p>No devices found</p>
           </div>
@@ -140,22 +204,22 @@ export default function DevicePalette() {
               onDragStart={(e) => handleDragStart(e, asset)}
               onClick={() => handleAddToCanvas(asset)}
               style={{
-                backgroundColor: '#334155',
+                backgroundColor: 'var(--bg-item)',
                 borderRadius: '12px',
                 padding: '12px',
                 cursor: 'grab',
-                border: '2px solid #475569',
+                border: '1px solid var(--border-color)',
                 transition: 'all 0.2s',
                 textAlign: 'center'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#3b82f6';
-                e.currentTarget.style.borderColor = '#60a5fa';
+                e.currentTarget.style.backgroundColor = 'var(--bg-item-hover)';
+                e.currentTarget.style.borderColor = 'var(--accent)';
                 e.currentTarget.style.transform = 'scale(1.05)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#334155';
-                e.currentTarget.style.borderColor = '#475569';
+                e.currentTarget.style.backgroundColor = 'var(--bg-item)';
+                e.currentTarget.style.borderColor = 'var(--border-color)';
                 e.currentTarget.style.transform = 'scale(1)';
               }}
             >
@@ -176,12 +240,12 @@ export default function DevicePalette() {
                     maxWidth: '90%',
                     maxHeight: '90%',
                     objectFit: 'contain',
-                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))',
+                    filter: 'drop-shadow(0 2px 4px var(--shadow-color))',
                   }}
                 />
               </div>
               <div style={{
-                color: 'white',
+                color: 'var(--text-main)',
                 fontSize: '11px',
                 fontWeight: '600',
                 overflow: 'hidden',
@@ -191,7 +255,7 @@ export default function DevicePalette() {
                 {asset.name}
               </div>
               <div style={{
-                color: '#94a3b8',
+                color: 'var(--text-muted)',
                 fontSize: '10px',
                 marginTop: '2px'
               }}>
@@ -205,12 +269,12 @@ export default function DevicePalette() {
       {/* Stats Footer */}
       <div style={{
         padding: '12px',
-        borderTop: '1px solid #334155',
-        backgroundColor: '#0f172a',
+        borderTop: '1px solid var(--border-color)',
+        backgroundColor: 'rgba(0,0,0,0.1)',
         display: 'flex',
         justifyContent: 'space-between',
         fontSize: '12px',
-        color: '#64748b'
+        color: 'var(--text-muted)'
       }}>
         <span>{filteredAssets.length} devices</span>
         <span>{topology.devices.length} on canvas</span>

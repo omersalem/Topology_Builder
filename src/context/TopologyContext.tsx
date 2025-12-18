@@ -6,7 +6,7 @@ import type {
   EditorState,
   ViewportState,
 } from '../types/topology';
-import { builtInAssets } from '../assets/builtInAssets';
+import { builtInAssets, DEFAULT_DEVICE_WIDTH, DEFAULT_DEVICE_HEIGHT } from '../assets/builtInAssets';
 
 interface TopologyContextState {
   topology: Topology;
@@ -17,6 +17,10 @@ interface TopologyContextState {
   setSelection: (selection: Selection) => void;
   setEditorState: (state: Partial<EditorState>) => void;
   setViewport: (viewport: Partial<ViewportState>) => void;
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 }
 
 const TopologyContext = createContext<TopologyContextState | undefined>(undefined);
@@ -57,6 +61,10 @@ const initialEditorState: EditorState = {
   tool: 'select',
   isDrawing: false,
   isPanning: false,
+  defaultDeviceSize: {
+    width: DEFAULT_DEVICE_WIDTH,
+    height: DEFAULT_DEVICE_HEIGHT,
+  },
 };
 
 const initialViewport: ViewportState = {
@@ -182,12 +190,82 @@ function topologyReducer(state: Topology, action: TopologyAction): Topology {
 
 // Provider component
 export function TopologyProvider({ children }: { children: ReactNode }) {
-  const [topology, dispatch] = useReducer(topologyReducer, initialTopology);
+  // History-aware reducer
+  const [historyDocs, dispatch] = useReducer(
+    (state: { past: Topology[]; present: Topology; future: Topology[] }, action: TopologyAction) => {
+      const { past, present, future } = state;
+
+      if (action.type === 'UNDO') {
+        if (past.length === 0) return state;
+        const previous = past[past.length - 1];
+        const newPast = past.slice(0, past.length - 1);
+        return {
+          past: newPast,
+          present: previous,
+          future: [present, ...future],
+        };
+      }
+
+      if (action.type === 'REDO') {
+        if (future.length === 0) return state;
+        const next = future[0];
+        const newFuture = future.slice(1);
+        return {
+          past: [...past, present],
+          present: next,
+          future: newFuture,
+        };
+      }
+
+      // For all other actions, update topology and push to history
+      // We limit history to 50 steps to prevent memory issues
+      // Some actions (like SET_SELECTION or panning/zooming) shouldn't be undoable?
+      // Actually ContextActions included SET_SELECTION, probably we don't want to undo selection changes efficiently?
+      // But typically undo SHOULD undo selection? Maybe. The plan said "topology changes".
+      // Let's filter out non-topology changes if possible, or just undo everything.
+      // Usually users expect undo to undo data changes. Selection changes are transient.
+      // However, the action types in `types/topology.ts` mix selection and data.
+      // SET_SELECTION is separate.
+      // Let's check action type.
+
+      // UPDATE_CANVAS might be zoom/pan? No, Viewport is separate. Canvas config is data.
+
+      const newPresent = topologyReducer(present, action);
+
+      if (newPresent === present) return state; // No change
+
+      if (action.type === 'SET_SELECTION') {
+        // If purely selection change, just update present, don't push to history?
+        // Or do we want to undo selection? 
+        // Let's stick to simple: if it touches data, push history.
+        // Selection is technically transient but often nice to undo.
+        // For now, let's EXCLUDE selection from history to avoid spamming history with clicks.
+        return {
+          past,
+          present: newPresent,
+          future
+        };
+      }
+
+      return {
+        past: [...past, present].slice(-50),
+        present: newPresent,
+        future: [],
+      };
+    },
+    {
+      past: [],
+      present: initialTopology,
+      future: [],
+    }
+  );
+
+  const { past, present: topology, future } = historyDocs;
   const [selection, setSelectionState] = React.useState<Selection>(initialSelection);
   const [editorState, setEditorStateInternal] = React.useState<EditorState>(initialEditorState);
   const [viewport, setViewportInternal] = React.useState<ViewportState>(initialViewport);
 
-  // Save to localStorage on changes
+  // Save to localStorage
   useEffect(() => {
     const saveTimeout = setTimeout(() => {
       try {
@@ -196,17 +274,15 @@ export function TopologyProvider({ children }: { children: ReactNode }) {
         console.error('Failed to save topology:', error);
       }
     }, 1000);
-
     return () => clearTimeout(saveTimeout);
   }, [topology]);
 
-  // Load from localStorage on mount
+  // Load from localStorage
   useEffect(() => {
     try {
       const saved = localStorage.getItem('topology-autosave');
       if (saved) {
         const loadedTopology = JSON.parse(saved);
-        // Ensure built-in assets are always included
         loadedTopology.assets = [
           ...builtInAssets,
           ...(loadedTopology.assets || []).filter((a: any) => a.type !== 'builtin'),
@@ -215,13 +291,18 @@ export function TopologyProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Failed to load topology:', error);
-      // Clear corrupted data
       localStorage.removeItem('topology-autosave');
     }
   }, []);
 
   const setSelection = React.useCallback((newSelection: Selection) => {
     setSelectionState(newSelection);
+    // Also dispatch to keep topology in sync if needed (though selection is state)
+    // Actually selection is dual-tracked? 
+    // In legacy code: `case 'SET_SELECTION'` in reducer?
+    // Checking reducer... YES, lines 199.
+    // If we want consistency, we should dispatch SET_SELECTION too.
+    dispatch({ type: 'SET_SELECTION', payload: newSelection });
   }, []);
 
   const setEditorState = React.useCallback((updates: Partial<EditorState>) => {
@@ -232,7 +313,33 @@ export function TopologyProvider({ children }: { children: ReactNode }) {
     setViewportInternal((prev) => ({ ...prev, ...updates }));
   }, []);
 
-  const value: TopologyContextState = {
+  // Helper functions
+  const undo = React.useCallback(() => dispatch({ type: 'UNDO' }), []);
+  const redo = React.useCallback(() => dispatch({ type: 'REDO' }), []);
+  const canUndo = past.length > 0;
+  const canRedo = future.length > 0;
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        redo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
+
+  const value: TopologyContextState & { undo: () => void; redo: () => void; canUndo: boolean; canRedo: boolean } = {
     topology,
     selection,
     editorState,
@@ -241,9 +348,13 @@ export function TopologyProvider({ children }: { children: ReactNode }) {
     setSelection,
     setEditorState,
     setViewport,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   };
 
-  return <TopologyContext.Provider value={value}>{children}</TopologyContext.Provider>;
+  return <TopologyContext.Provider value={value as any}>{children}</TopologyContext.Provider>;
 }
 
 // Hook to use the context

@@ -40,6 +40,10 @@ import fujitsu_af250_storage_alt from './icons/devices/fujitsu_af250_storage_alt
 import personal_computer_alt from './icons/devices/personal_computer_alt.png';
 import voip_phone_alt from './icons/devices/voip_phone_alt.png';
 
+// Global default size for all devices
+export const DEFAULT_DEVICE_WIDTH = 100;
+export const DEFAULT_DEVICE_HEIGHT = 100;
+
 export const builtInAssets: Asset[] = [
   // ========== NETWORK DEVICES ==========
   {
@@ -48,8 +52,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: ciscoSwitchIcon,
     category: 'Network',
-    defaultWidth: 150,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'cisco-router',
@@ -57,8 +61,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: ciscoRouterIcon,
     category: 'Network',
-    defaultWidth: 150,
-    defaultHeight: 110,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'network-switch',
@@ -66,8 +70,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: networkSwitchIcon,
     category: 'Network',
-    defaultWidth: 150,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'managed-switch',
@@ -75,8 +79,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: managedSwitchIcon,
     category: 'Network',
-    defaultWidth: 150,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'fujitsu-san-switch',
@@ -84,8 +88,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: fujitsuSanSwitchIcon,
     category: 'Network',
-    defaultWidth: 150,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'wifi-router',
@@ -93,8 +97,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: wifiIcon,
     category: 'Network',
-    defaultWidth: 140,
-    defaultHeight: 110,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'fujitsu-core-switch',
@@ -102,8 +106,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: fujitsuCoreSwitchIcon,
     category: 'Network',
-    defaultWidth: 160,
-    defaultHeight: 165,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
 
   // ========== SECURITY DEVICES ==========
@@ -113,8 +117,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: ciscoFtdFirewallIcon,
     category: 'Security',
-    defaultWidth: 150,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'f5-waf',
@@ -122,8 +126,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: f5WafIcon,
     category: 'Security',
-    defaultWidth: 150,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'fortigate-firewall',
@@ -131,8 +135,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: fortigateFirewallIcon,
     category: 'Security',
-    defaultWidth: 150,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'secure-enclosure',
@@ -140,8 +144,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: secureEnclosureIcon,
     category: 'Security',
-    defaultWidth: 140,
-    defaultHeight: 110,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'dvr-system',
@@ -149,8 +153,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: dvrIcon,
     category: 'Security',
-    defaultWidth: 140,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
 
   // ========== SERVERS ==========
@@ -160,8 +164,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: esxiServerIcon,
     category: 'Servers',
-    defaultWidth: 150,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'server-blade',
@@ -169,8 +173,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: serverBladeIcon,
     category: 'Servers',
-    defaultWidth: 150,
-    defaultHeight: 110,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'server-rack',
@@ -178,8 +182,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: serverRackIcon,
     category: 'Servers',
-    defaultWidth: 130,
-    defaultHeight: 120,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
 
   // ========== STORAGE ==========
@@ -189,8 +193,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: fujitsuBackupServerIcon,
     category: 'Storage',
-    defaultWidth: 150,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'fujitsu-storage-system',
@@ -198,8 +202,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: fujitsuStorageSystemIcon,
     category: 'Storage',
-    defaultWidth: 150,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
 
   // ========== CLOUD ==========
@@ -209,8 +213,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: internetIcon,
     category: 'Cloud',
-    defaultWidth: 140,
-    defaultHeight: 110,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
 
   // ========== ALTERNATIVE DEVICE STYLES ==========
@@ -220,8 +224,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: cisco_switch_alt,
     category: 'Network',
-    defaultWidth: 150,
-    defaultHeight: 96,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'f5_big_ip_alt',
@@ -229,8 +233,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: f5_big_ip_alt,
     category: 'Security',
-    defaultWidth: 150,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'fortigate_601e_alt',
@@ -238,8 +242,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: fortigate_601e_left_alt,
     category: 'Security',
-    defaultWidth: 150,
-    defaultHeight: 72,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'cucm_server_alt',
@@ -247,8 +251,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: cucm_server_alt,
     category: 'Servers',
-    defaultWidth: 100,
-    defaultHeight: 105,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'voip_router_alt',
@@ -256,8 +260,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: voip_router_alt,
     category: 'Network',
-    defaultWidth: 72,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'legacy_dmz_alt',
@@ -265,8 +269,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: legacy_dmz_alt,
     category: 'Security',
-    defaultWidth: 80,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'fujitsu_core_switch_alt',
@@ -274,8 +278,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: fujitsu_core_switch_alt,
     category: 'Network',
-    defaultWidth: 100,
-    defaultHeight: 103,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'cisco_ftd_3105_alt',
@@ -283,8 +287,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: cisco_ftd_3105_alt,
     category: 'Security',
-    defaultWidth: 150,
-    defaultHeight: 95,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'backup_server_alt',
@@ -292,8 +296,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: backup_server_alt,
     category: 'Servers',
-    defaultWidth: 120,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'esxi_blade_alt',
@@ -301,8 +305,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: esxi_blade_alt,
     category: 'Servers',
-    defaultWidth: 150,
-    defaultHeight: 61,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'tape_library_alt',
@@ -310,8 +314,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: tape_library_alt,
     category: 'Storage',
-    defaultWidth: 137,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'brocade_san_switch_alt',
@@ -319,8 +323,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: brocade_san_switch_alt,
     category: 'Storage',
-    defaultWidth: 150,
-    defaultHeight: 84,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'fujitsu_af250_storage_alt',
@@ -328,8 +332,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: fujitsu_af250_storage_alt,
     category: 'Storage',
-    defaultWidth: 150,
-    defaultHeight: 62,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'personal_computer_alt',
@@ -337,8 +341,8 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: personal_computer_alt,
     category: 'Other',
-    defaultWidth: 86,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
   {
     id: 'voip_phone_alt',
@@ -346,7 +350,7 @@ export const builtInAssets: Asset[] = [
     type: 'builtin',
     src: voip_phone_alt,
     category: 'Other',
-    defaultWidth: 130,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_DEVICE_WIDTH,
+    defaultHeight: DEFAULT_DEVICE_HEIGHT,
   },
 ];

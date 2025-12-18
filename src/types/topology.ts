@@ -20,6 +20,7 @@ export interface Port {
 
 export interface Device {
   id: string;
+  groupId?: string; // Logical group ID
   assetId: string;
   type: string; // switch, router, firewall, server, etc.
   label: string;
@@ -55,12 +56,14 @@ export interface Link {
     width: number;
     dash: number[]; // e.g., [5, 5] for dashed
     curveOffset?: number; // offset for parallel links
+    arrowType?: 'none' | 'end' | 'both'; // arrow head style
   };
   controlPoints?: { x: number; y: number }[]; // for manual bezier editing
 }
 
 export interface Group {
   id: string;
+  groupId?: string; // Nested groups if needed
   label: string;
   x: number;
   y: number;
@@ -76,6 +79,7 @@ export interface Group {
 
 export interface TextAnnotation {
   id: string;
+  groupId?: string; // Logical group ID
   text: string;
   x: number;
   y: number;
@@ -83,12 +87,16 @@ export interface TextAnnotation {
   fontFamily: string;
   color: string;
   rotation: number;
-  width?: number; // for multi-line
+  width?: number;
   align: 'left' | 'center' | 'right';
+  fontStyle?: string; // 'normal', 'bold', 'italic', etc.
+  backgroundColor?: string;
+  padding?: number;
 }
 
 export interface Shape {
   id: string;
+  groupId?: string; // Logical group ID
   type: 'rectangle' | 'circle' | 'roundedRect' | 'polygon' | 'path';
   x: number;
   y: number;
@@ -152,6 +160,10 @@ export interface EditorState {
   linkInProgress?: {
     fromDevice: string;
     fromPort?: string;
+  };
+  defaultDeviceSize: {
+    width: number;
+    height: number;
   };
 }
 

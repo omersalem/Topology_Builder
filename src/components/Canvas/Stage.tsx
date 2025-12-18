@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type DragEvent } from 'react';
-import { Stage, Layer, Rect, Line, Arrow, Text, Circle, Group, Image, Transformer, Ellipse } from 'react-konva';
+import { Stage, Layer, Rect, Line, Arrow, Text, Circle, Group, Image, Transformer, Ellipse, Label, Tag } from 'react-konva';
 import Konva from 'konva';
 import { useTopology } from '../../context/TopologyContext';
 import { generateId } from '../../utils/geometry';
@@ -41,7 +41,7 @@ function DeviceNode({
   device: any;
   isSelected: boolean;
   image: HTMLImageElement | null;
-  onSelect: (e: any) => void;
+  onSelect: (e: Konva.KonvaEventObject<any>) => void;
   onTransformEnd: (id: string, width: number, height: number, x: number, y: number) => void;
   onDragEnd: (id: string, x: number, y: number) => void;
   onPortClick: (deviceId: string, portId: string) => void;
@@ -296,7 +296,7 @@ function ZoneShape({
 }: {
   shape: any;
   isSelected: boolean;
-  onSelect: () => void;
+  onSelect: (e: Konva.KonvaEventObject<any>) => void;
   onTransformEnd: (id: string, width: number, height: number, x: number, y: number) => void;
   onDragEnd: (id: string, x: number, y: number) => void;
   onDelete: (id: string) => void;
@@ -343,7 +343,7 @@ function ZoneShape({
         draggable
         onClick={(e) => {
           e.cancelBubble = true;
-          onSelect();
+          onSelect(e);
         }}
         onDragEnd={(e) => {
           onDragEnd(shape.id, e.target.x(), e.target.y());
@@ -396,7 +396,7 @@ function ZoneShape({
           borderDash={[6, 3]}
         />
       )}
-      
+
       {/* Delete button for selected zone */}
       {isSelected && (
         <Group
@@ -425,6 +425,98 @@ function ZoneShape({
             fontStyle="bold"
           />
         </Group>
+      )}
+    </>
+  );
+}
+
+function TextNode({
+  text,
+  isSelected,
+  onSelect,
+  onDragEnd,
+  onTransformEnd
+}: {
+  text: any;
+  isSelected: boolean;
+  onSelect: (e: Konva.KonvaEventObject<any>) => void;
+  onDragEnd: (e: Konva.KonvaEventObject<any>) => void;
+  onTransformEnd: (id: string, updates: any) => void;
+}) {
+  const shapeRef = useRef<Konva.Label>(null);
+  const trRef = useRef<Konva.Transformer>(null);
+
+  useEffect(() => {
+    if (isSelected && trRef.current && shapeRef.current) {
+      trRef.current.nodes([shapeRef.current]);
+      trRef.current.getLayer()?.batchDraw();
+    }
+  }, [isSelected]);
+
+  return (
+    <>
+      <Label
+        ref={shapeRef}
+        x={text.x}
+        y={text.y}
+        rotation={text.rotation || 0}
+        draggable
+        onClick={(e) => {
+          e.cancelBubble = true;
+          onSelect(e);
+        }}
+        onDragEnd={onDragEnd}
+        onTransformEnd={() => {
+          const node = shapeRef.current;
+          if (node) {
+            // Reset scale and update font size if scaled? 
+            // For now let's just handle rotation and position. 
+            // Handling font size scaling requires more math. 
+            // Let's just persist rotation and position.
+
+            // Actually, if we want to support resizing text (font size), we should do it here.
+            // But user asked for rotation.
+
+            node.scaleX(1);
+            node.scaleY(1);
+
+            onTransformEnd(text.id, {
+              x: node.x(),
+              y: node.y(),
+              rotation: node.rotation(),
+              // If we wanted to handle scaling:
+              // fontSize: text.fontSize * scaleX
+            });
+          }
+        }}
+      >
+        <Tag
+          fill={text.backgroundColor === 'transparent' ? undefined : text.backgroundColor}
+          cornerRadius={4}
+        />
+        <Text
+          text={text.text}
+          fontSize={text.fontSize}
+          fontFamily={text.fontFamily}
+          fontStyle={text.fontStyle}
+          fill={text.color}
+          padding={text.padding || 0}
+        />
+      </Label>
+      {isSelected && (
+        <Transformer
+          ref={trRef}
+          boundBoxFunc={(oldBox, newBox) => {
+            // limit resize
+            if (newBox.width < 5 || newBox.height < 5) {
+              return oldBox;
+            }
+            return newBox;
+          }}
+          enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']} // Corner anchors for resize/rotate
+        // If we want ONLY rotation, we could hide anchors or use centered rotation handle?
+        // Default Transformer allows rotation via handle above top-center or corner rotating.
+        />
       )}
     </>
   );
@@ -464,9 +556,98 @@ export default function CanvasStage() {
   const {
     topology,
     selection,
-    setSelection,
     dispatch,
+    setSelection
   } = useTopology();
+
+  // Helper to handle selection with grouping support
+  const handleSelect = (
+    id: string,
+    type: 'device' | 'text' | 'shape',
+    groupId: string | undefined,
+    e: Konva.KonvaEventObject<any> | { evt: { ctrlKey: boolean, metaKey: boolean }, cancelBubble?: boolean }
+  ) => {
+    if ('cancelBubble' in e) e.cancelBubble = true;
+    const isMultiSelect = e.evt?.ctrlKey || e.evt?.metaKey;
+
+    // Find all items in the group if applicable
+    let targetIds: { deviceIds: string[], textIds: string[], shapeIds: string[] } = {
+      deviceIds: [], textIds: [], shapeIds: []
+    };
+
+    if (groupId) {
+      targetIds.deviceIds = topology.devices.filter(d => d.groupId === groupId).map(d => d.id);
+      targetIds.textIds = topology.texts.filter(t => t.groupId === groupId).map(t => t.id);
+      targetIds.shapeIds = topology.shapes.filter(s => s.groupId === groupId).map(s => s.id);
+    } else {
+      if (type === 'device') targetIds.deviceIds = [id];
+      if (type === 'text') targetIds.textIds = [id];
+      if (type === 'shape') targetIds.shapeIds = [id];
+    }
+
+    if (isMultiSelect) {
+      // Toggle logic
+      const isSelected = (
+        (type === 'device' && selection.deviceIds.includes(id)) ||
+        (type === 'text' && selection.textIds.includes(id)) ||
+        (type === 'shape' && selection.shapeIds.includes(id))
+      );
+
+      if (isSelected) {
+        // Remove from selection
+        setSelection({
+          ...selection,
+          deviceIds: selection.deviceIds.filter(dId => !targetIds.deviceIds.includes(dId)),
+          textIds: selection.textIds.filter(tId => !targetIds.textIds.includes(tId)),
+          shapeIds: selection.shapeIds.filter(sId => !targetIds.shapeIds.includes(sId)),
+          groupIds: groupId ? selection.groupIds.filter(gId => gId !== groupId) : selection.groupIds
+        });
+      } else {
+        // Add to selection
+        setSelection({
+          ...selection,
+          deviceIds: [...new Set([...selection.deviceIds, ...targetIds.deviceIds])],
+          textIds: [...new Set([...selection.textIds, ...targetIds.textIds])],
+          shapeIds: [...new Set([...selection.shapeIds, ...targetIds.shapeIds])],
+          groupIds: groupId ? [...new Set([...selection.groupIds, groupId])] : selection.groupIds
+        });
+      }
+    } else {
+      // Replace selection
+      setSelection({
+        deviceIds: targetIds.deviceIds,
+        linkIds: [],
+        groupIds: groupId ? [groupId] : [],
+        shapeIds: targetIds.shapeIds,
+        textIds: targetIds.textIds,
+      });
+    }
+  };
+
+  // Helper to handle unified dragging
+  const moveSelection = (deltaX: number, deltaY: number) => {
+    // Move devices
+    selection.deviceIds.forEach(id => {
+      const item = topology.devices.find(d => d.id === id);
+      if (item) {
+        dispatch({ type: 'UPDATE_DEVICE', payload: { id: item.id, updates: { x: item.x + deltaX, y: item.y + deltaY } } });
+      }
+    });
+    // Move texts
+    selection.textIds.forEach(id => {
+      const item = topology.texts.find(t => t.id === id);
+      if (item) {
+        dispatch({ type: 'UPDATE_TEXT', payload: { id: item.id, updates: { x: item.x + deltaX, y: item.y + deltaY } } });
+      }
+    });
+    // Move shapes
+    selection.shapeIds.forEach(id => {
+      const item = topology.shapes.find(s => s.id === id);
+      if (item) {
+        dispatch({ type: 'UPDATE_SHAPE', payload: { id: item.id, updates: { x: item.x + deltaX, y: item.y + deltaY } } });
+      }
+    });
+  };
 
   // Load images for all assets
   useEffect(() => {
@@ -609,19 +790,19 @@ export default function CanvasStage() {
       const selectedLinks = topology.links.filter(link => {
         const points = getLinkPoints(link);
         if (!points) return false;
-        
+
         // Check if line segment intersects with rectangle
         // Simplified: check if either endpoint or midpoint is in rect
         const midX = (points.fromX + points.toX) / 2;
         const midY = (points.fromY + points.toY) / 2;
-        
-        const pointInRect = (x: number, y: number) => 
-          x >= selectionRect.x && x <= rectRight && 
+
+        const pointInRect = (x: number, y: number) =>
+          x >= selectionRect.x && x <= rectRight &&
           y >= selectionRect.y && y <= rectBottom;
-        
-        return pointInRect(points.fromX, points.fromY) || 
-               pointInRect(points.toX, points.toY) || 
-               pointInRect(midX, midY);
+
+        return pointInRect(points.fromX, points.fromY) ||
+          pointInRect(points.toX, points.toY) ||
+          pointInRect(midX, midY);
       });
 
       if (selectedDevices.length > 0 || selectedLinks.length > 0) {
@@ -716,7 +897,7 @@ export default function CanvasStage() {
         const portX = device.x + (device.width * port.x);
         const portY = device.y + (device.height * port.y);
         const distance = Math.sqrt((clickX - portX) ** 2 + (clickY - portY) ** 2);
-        
+
         if (distance < portClickRadius) {
           // Click is near a port - trigger port connection directly!
           e.cancelBubble = true;
@@ -818,7 +999,7 @@ export default function CanvasStage() {
           activeElement.tagName === 'TEXTAREA' ||
           (activeElement as HTMLElement).isContentEditable
         );
-        
+
         if (isTyping) return; // Skip deletion when typing
 
         selection.deviceIds.forEach(id => {
@@ -857,22 +1038,22 @@ export default function CanvasStage() {
     if (!fromDevice || !toDevice) return null;
 
     // Get port data
-    const fromPort = link.from.portId ? 
-      (fromDevice.ports.find((p: any) => p.id === link.from.portId) || 
-       DEFAULT_PORTS.find(p => p.id === link.from.portId)) : null;
-    
+    const fromPort = link.from.portId ?
+      (fromDevice.ports.find((p: any) => p.id === link.from.portId) ||
+        DEFAULT_PORTS.find(p => p.id === link.from.portId)) : null;
+
     const toPort = link.to.portId ?
       (toDevice.ports.find((p: any) => p.id === link.to.portId) ||
-       DEFAULT_PORTS.find(p => p.id === link.to.portId)) : null;
+        DEFAULT_PORTS.find(p => p.id === link.to.portId)) : null;
 
     // Calculate port positions
-    let fromX = fromPort 
+    let fromX = fromPort
       ? fromDevice.x + (fromDevice.width * fromPort.x)
       : fromDevice.x + fromDevice.width / 2;
     let fromY = fromPort
       ? fromDevice.y + (fromDevice.height * fromPort.y)
       : fromDevice.y + fromDevice.height / 2;
-    
+
     let toX = toPort
       ? toDevice.x + (toDevice.width * toPort.x)
       : toDevice.x + toDevice.width / 2;
@@ -882,7 +1063,7 @@ export default function CanvasStage() {
 
     // Calculate offset based on port position (exit perpendicular to edge)
     const portOffset = 15;
-    
+
     if (fromPort) {
       // Determine exit direction based on port position
       if (fromPort.x === 0) fromX -= portOffset; // Left port - exit left
@@ -890,7 +1071,7 @@ export default function CanvasStage() {
       else if (fromPort.y === 0) fromY -= portOffset; // Top port - exit up
       else if (fromPort.y === 1) fromY += portOffset; // Bottom port - exit down
     }
-    
+
     if (toPort) {
       // Determine entry direction based on port position  
       if (toPort.x === 0) toX -= portOffset; // Left port - enter from left
@@ -903,7 +1084,7 @@ export default function CanvasStage() {
     if (!fromPort && !toPort) {
       const dx = toX - fromX;
       const dy = toY - fromY;
-      
+
       // Find where line exits fromDevice
       let t = Infinity;
       if (dx > 0) t = Math.min(t, (fromDevice.x + fromDevice.width - fromX) / dx);
@@ -914,7 +1095,7 @@ export default function CanvasStage() {
         fromX = fromX + dx * t;
         fromY = fromY + dy * t;
       }
-      
+
       // Find where line enters toDevice (from opposite direction)
       t = Infinity;
       const toCenterX = toDevice.x + toDevice.width / 2;
@@ -937,20 +1118,20 @@ export default function CanvasStage() {
       const fromCenterY = fromDevice.y + fromDevice.height / 2;
       const toCenterX = toDevice.x + toDevice.width / 2;
       const toCenterY = toDevice.y + toDevice.height / 2;
-      
+
       // Direction from center to center
       const dx = toCenterX - fromCenterX;
       const dy = toCenterY - fromCenterY;
       const length = Math.sqrt(dx * dx + dy * dy);
-      
+
       if (length > 0) {
         // Perpendicular unit vector
         const perpX = -dy / length;
         const perpY = dx / length;
-        
+
         // Helper: find where a ray from center exits the rect
-        const findEdgeExit = (cx: number, cy: number, dirX: number, dirY: number, 
-                              rectX: number, rectY: number, rectW: number, rectH: number) => {
+        const findEdgeExit = (cx: number, cy: number, dirX: number, dirY: number,
+          rectX: number, rectY: number, rectW: number, rectH: number) => {
           let tMin = Infinity;
           // Check all 4 edges
           if (dirX > 0) { // Right edge
@@ -970,7 +1151,7 @@ export default function CanvasStage() {
           if (tMin === Infinity) return { x: cx, y: cy };
           return { x: cx + dirX * tMin, y: cy + dirY * tMin };
         };
-        
+
         // Find edge exit points for the CENTER line
         const fromCenterEdge = findEdgeExit(
           fromCenterX, fromCenterY, dx, dy,
@@ -980,7 +1161,7 @@ export default function CanvasStage() {
           toCenterX, toCenterY, -dx, -dy,
           toDevice.x, toDevice.y, toDevice.width, toDevice.height
         );
-        
+
         // Now apply perpendicular offset to the edge points
         fromX = fromCenterEdge.x + perpX * curveOffset;
         fromY = fromCenterEdge.y + perpY * curveOffset;
@@ -1075,32 +1256,28 @@ export default function CanvasStage() {
           {/* Zone Shapes - rendered behind devices */}
           {topology.shapes.map(shape => {
             const isShapeSelected = selection.shapeIds.includes(shape.id);
-            
+
             return (
               <ZoneShape
                 key={shape.id}
                 shape={shape}
                 isSelected={isShapeSelected}
-                onSelect={() => {
-                  setSelection({
-                    deviceIds: [],
-                    linkIds: [],
-                    groupIds: [],
-                    shapeIds: [shape.id],
-                    textIds: [],
-                  });
-                }}
+                onSelect={(e) => handleSelect(shape.id, 'shape', shape.groupId, e)}
                 onTransformEnd={(id, width, height, x, y) => {
                   dispatch({
                     type: 'UPDATE_SHAPE',
                     payload: { id, updates: { width, height, x, y } },
                   });
                 }}
-                onDragEnd={(id, x, y) => {
-                  dispatch({
-                    type: 'UPDATE_SHAPE',
-                    payload: { id, updates: { x, y } },
-                  });
+                onDragEnd={(id, newX, newY) => {
+                  const deltaX = newX - shape.x;
+                  const deltaY = newY - shape.y;
+
+                  if (selection.shapeIds.includes(id)) {
+                    moveSelection(deltaX, deltaY);
+                  } else {
+                    dispatch({ type: 'UPDATE_SHAPE', payload: { id, updates: { x: newX, y: newY } } });
+                  }
                 }}
                 onDelete={(id) => {
                   dispatch({ type: 'REMOVE_SHAPE', payload: id });
@@ -1123,27 +1300,7 @@ export default function CanvasStage() {
               device={device}
               isSelected={selection.deviceIds.includes(device.id)}
               image={images[device.assetId] || null}
-              onSelect={(e) => {
-                // Support Ctrl+click for multi-select
-                if (e.evt?.ctrlKey || e.evt?.metaKey) {
-                  const isCurrentlySelected = selection.deviceIds.includes(device.id);
-                  setSelection({
-                    ...selection,
-                    deviceIds: isCurrentlySelected 
-                      ? selection.deviceIds.filter(id => id !== device.id) // Toggle off
-                      : [...selection.deviceIds, device.id] // Add to selection
-                  });
-                } else {
-                  // Replace selection
-                  setSelection({
-                    deviceIds: [device.id],
-                    linkIds: [],
-                    groupIds: [],
-                    shapeIds: [],
-                    textIds: [],
-                  });
-                }
-              }}
+              onSelect={(e) => handleSelect(device.id, 'device', device.groupId, e)}
               onTransformEnd={(id, width, height, x, y) => {
                 dispatch({
                   type: 'UPDATE_DEVICE',
@@ -1151,30 +1308,13 @@ export default function CanvasStage() {
                 });
               }}
               onDragEnd={(id, newX, newY) => {
-                // If multiple devices selected, move them all together
-                if (selection.deviceIds.length > 1 && selection.deviceIds.includes(id)) {
-                  const draggedDevice = topology.devices.find(d => d.id === id);
-                  if (draggedDevice) {
-                    const deltaX = newX - draggedDevice.x;
-                    const deltaY = newY - draggedDevice.y;
-                    
-                    // Move all selected devices by the same delta
-                    selection.deviceIds.forEach(deviceId => {
-                      const dev = topology.devices.find(d => d.id === deviceId);
-                      if (dev) {
-                        dispatch({
-                          type: 'UPDATE_DEVICE',
-                          payload: { id: deviceId, updates: { x: dev.x + deltaX, y: dev.y + deltaY } },
-                        });
-                      }
-                    });
-                  }
+                const deltaX = newX - device.x;
+                const deltaY = newY - device.y;
+
+                if (selection.deviceIds.includes(id)) {
+                  moveSelection(deltaX, deltaY);
                 } else {
-                  // Single device drag
-                  dispatch({
-                    type: 'UPDATE_DEVICE',
-                    payload: { id, updates: { x: newX, y: newY } },
-                  });
+                  dispatch({ type: 'UPDATE_DEVICE', payload: { id, updates: { x: newX, y: newY } } });
                 }
               }}
               onPortClick={handlePortClick}
@@ -1195,15 +1335,15 @@ export default function CanvasStage() {
                 if (device) {
                   dispatch({
                     type: 'UPDATE_DEVICE',
-                    payload: { 
-                      id: deviceId, 
-                      updates: { 
-                        style: { 
-                          ...device.style, 
-                          labelOffsetX: offsetX, 
-                          labelOffsetY: offsetY 
-                        } 
-                      } 
+                    payload: {
+                      id: deviceId,
+                      updates: {
+                        style: {
+                          ...device.style,
+                          labelOffsetX: offsetX,
+                          labelOffsetY: offsetY
+                        }
+                      }
                     },
                   });
                 }
@@ -1223,7 +1363,7 @@ export default function CanvasStage() {
               if (!linkGroups[key]) linkGroups[key] = [];
               linkGroups[key].push(link);
             });
-            
+
             // Calculate dynamic offset for each link
             const linkOffsets: Record<string, number> = {};
             Object.values(linkGroups).forEach(group => {
@@ -1231,13 +1371,13 @@ export default function CanvasStage() {
               group.forEach((link, index) => {
                 // Calculate offset: center the group around 0
                 // For 5 links: -50, -25, 0, 25, 50
-                const offset = count > 1 
-                  ? (index - (count - 1) / 2) * 25 
+                const offset = count > 1
+                  ? (index - (count - 1) / 2) * 25
                   : 0;
                 linkOffsets[link.id] = offset;
               });
             });
-            
+
             return topology.links.map(link => {
               // Use dynamic offset instead of stored curveOffset
               const dynamicOffset = linkOffsets[link.id] || 0;
@@ -1245,94 +1385,96 @@ export default function CanvasStage() {
                 ...link,
                 style: { ...link.style, curveOffset: dynamicOffset }
               };
-              
+
               const points = getLinkPoints(linkWithDynamicOffset);
               if (!points) return null;
 
-            const isLinkSelected = selection.linkIds.includes(link.id);
+              const isLinkSelected = selection.linkIds.includes(link.id);
 
-            // Build full path with waypoints
-            const waypoints = link.controlPoints || [];
-            const allPoints: number[] = [points.fromX, points.fromY];
-            waypoints.forEach(wp => {
-              allPoints.push(wp.x, wp.y);
+              // Build full path with waypoints
+              const waypoints = link.controlPoints || [];
+              const allPoints: number[] = [points.fromX, points.fromY];
+              waypoints.forEach(wp => {
+                allPoints.push(wp.x, wp.y);
+              });
+              allPoints.push(points.toX, points.toY);
+
+              return (
+                <Group
+                  key={link.id}
+                  onClick={(e) => {
+                    e.cancelBubble = true;
+                    // Support Ctrl+click for multi-select
+                    if (e.evt.ctrlKey || e.evt.metaKey) {
+                      // Add to or remove from current selection
+                      const isCurrentlySelected = selection.linkIds.includes(link.id);
+                      setSelection({
+                        ...selection,
+                        linkIds: isCurrentlySelected
+                          ? selection.linkIds.filter(id => id !== link.id) // Toggle off if already selected
+                          : [...selection.linkIds, link.id] // Add to selection
+                      });
+                    } else {
+                      // Replace selection
+                      setSelection({
+                        deviceIds: [],
+                        linkIds: [link.id],
+                        groupIds: [],
+                        shapeIds: [],
+                        textIds: [],
+                      });
+                    }
+                  }}
+                  onMouseEnter={(e) => {
+                    setHoveredLinkId(link.id);
+                    const container = e.target.getStage()?.container();
+                    if (container) container.style.cursor = 'pointer';
+                  }}
+                  onMouseLeave={(e) => {
+                    setHoveredLinkId(null);
+                    const container = e.target.getStage()?.container();
+                    if (container) container.style.cursor = 'default';
+                  }}
+                >
+                  <Arrow
+                    points={allPoints}
+                    stroke={isLinkSelected ? '#3b82f6' : link.style.color}
+                    strokeWidth={hoveredLinkId === link.id ? 5 : (isLinkSelected ? 4 : link.style.width)}
+                    fill={isLinkSelected ? '#3b82f6' : link.style.color}
+                    pointerLength={hoveredLinkId === link.id ? 14 : 10}
+                    pointerWidth={hoveredLinkId === link.id ? 14 : 10}
+                    pointerAtBeginning={link.style.arrowType === 'both'}
+                    pointerAtEnding={link.style.arrowType !== 'none'}
+                    shadowColor={link.style.color}
+                    shadowBlur={hoveredLinkId === link.id ? 15 : 8}
+                    shadowOpacity={hoveredLinkId === link.id ? 0.8 : 0.5}
+                    hitStrokeWidth={15}
+                  />
+                  {/* Waypoint indicators for selected links */}
+                  {isLinkSelected && waypoints.map((wp, i) => (
+                    <Circle
+                      key={i}
+                      x={wp.x}
+                      y={wp.y}
+                      radius={6}
+                      fill="#3b82f6"
+                      stroke="#fff"
+                      strokeWidth={2}
+                    />
+                  ))}
+                  {link.label && (
+                    <Text
+                      x={(points.fromX + points.toX) / 2 - 30}
+                      y={(points.fromY + points.toY) / 2 - 10}
+                      text={link.label}
+                      fontSize={10}
+                      fill="#ffffff"
+                      padding={4}
+                    />
+                  )}
+                </Group>
+              );
             });
-            allPoints.push(points.toX, points.toY);
-
-            return (
-              <Group
-                key={link.id}
-                onClick={(e) => {
-                  e.cancelBubble = true;
-                  // Support Ctrl+click for multi-select
-                  if (e.evt.ctrlKey || e.evt.metaKey) {
-                    // Add to or remove from current selection
-                    const isCurrentlySelected = selection.linkIds.includes(link.id);
-                    setSelection({
-                      ...selection,
-                      linkIds: isCurrentlySelected 
-                        ? selection.linkIds.filter(id => id !== link.id) // Toggle off if already selected
-                        : [...selection.linkIds, link.id] // Add to selection
-                    });
-                  } else {
-                    // Replace selection
-                    setSelection({
-                      deviceIds: [],
-                      linkIds: [link.id],
-                      groupIds: [],
-                      shapeIds: [],
-                      textIds: [],
-                    });
-                  }
-                }}
-                onMouseEnter={(e) => {
-                  setHoveredLinkId(link.id);
-                  const container = e.target.getStage()?.container();
-                  if (container) container.style.cursor = 'pointer';
-                }}
-                onMouseLeave={(e) => {
-                  setHoveredLinkId(null);
-                  const container = e.target.getStage()?.container();
-                  if (container) container.style.cursor = 'default';
-                }}
-              >
-                <Arrow
-                  points={allPoints}
-                  stroke={isLinkSelected ? '#3b82f6' : link.style.color}
-                  strokeWidth={hoveredLinkId === link.id ? 5 : (isLinkSelected ? 4 : link.style.width)}
-                  fill={isLinkSelected ? '#3b82f6' : link.style.color}
-                  pointerLength={hoveredLinkId === link.id ? 14 : 10}
-                  pointerWidth={hoveredLinkId === link.id ? 14 : 10}
-                  shadowColor={link.style.color}
-                  shadowBlur={hoveredLinkId === link.id ? 15 : 8}
-                  shadowOpacity={hoveredLinkId === link.id ? 0.8 : 0.5}
-                  hitStrokeWidth={15}
-                />
-                {/* Waypoint indicators for selected links */}
-                {isLinkSelected && waypoints.map((wp, i) => (
-                  <Circle
-                    key={i}
-                    x={wp.x}
-                    y={wp.y}
-                    radius={6}
-                    fill="#3b82f6"
-                    stroke="#fff"
-                    strokeWidth={2}
-                  />
-                ))}
-                {link.label && (
-                  <Text
-                    x={(points.fromX + points.toX) / 2 - 30}
-                    y={(points.fromY + points.toY) / 2 - 10}
-                    text={link.label}
-                    fontSize={10}
-                    fill="#ffffff"
-                    padding={4}
-                  />
-                )}
-              </Group>
-            );
-          });
           })()}
 
           {/* Preview line during linking */}
@@ -1354,20 +1496,20 @@ export default function CanvasStage() {
             previewPoints.push(mousePosition.x, mousePosition.y);
 
             // Calculate angle from last point to mouse
-            const lastX = pendingWaypoints.length > 0 
-              ? pendingWaypoints[pendingWaypoints.length - 1].x 
+            const lastX = pendingWaypoints.length > 0
+              ? pendingWaypoints[pendingWaypoints.length - 1].x
               : startX;
-            const lastY = pendingWaypoints.length > 0 
-              ? pendingWaypoints[pendingWaypoints.length - 1].y 
+            const lastY = pendingWaypoints.length > 0
+              ? pendingWaypoints[pendingWaypoints.length - 1].y
               : startY;
-            
+
             const dx = mousePosition.x - lastX;
             const dy = mousePosition.y - lastY;
             const angleRad = Math.atan2(dy, dx);
             let angleDeg = Math.round(angleRad * (180 / Math.PI));
             // Normalize to 0-360
             if (angleDeg < 0) angleDeg += 360;
-            
+
             // Determine if angle is close to cardinal direction (±5°)
             const isCardinal = [0, 90, 180, 270, 360].some(
               card => Math.abs(angleDeg - card) <= 5 || Math.abs((angleDeg + 360) % 360 - card) <= 5
@@ -1425,25 +1567,27 @@ export default function CanvasStage() {
           })()}
 
           {/* Text annotations */}
+          {/* Text annotations */}
           {topology.texts.map(text => (
-            <Text
+            <TextNode
               key={text.id}
-              x={text.x}
-              y={text.y}
-              text={text.text}
-              fontSize={text.fontSize}
-              fontFamily={text.fontFamily}
-              fill={text.color}
-              draggable
-              onClick={(e) => {
-                e.cancelBubble = true;
-                setSelection({
-                  deviceIds: [],
-                  linkIds: [],
-                  groupIds: [],
-                  shapeIds: [],
-                  textIds: [text.id],
-                });
+              text={text}
+              isSelected={selection.textIds.includes(text.id)}
+              onSelect={(e) => handleSelect(text.id, 'text', text.groupId, e)}
+              onTransformEnd={(id, updates) => {
+                dispatch({ type: 'UPDATE_TEXT', payload: { id, updates } });
+              }}
+              onDragEnd={(e) => {
+                const newX = e.target.x();
+                const newY = e.target.y();
+                const deltaX = newX - text.x;
+                const deltaY = newY - text.y;
+
+                if (selection.textIds.includes(text.id)) {
+                  moveSelection(deltaX, deltaY);
+                } else {
+                  dispatch({ type: 'UPDATE_TEXT', payload: { id: text.id, updates: { x: newX, y: newY } } });
+                }
               }}
             />
           ))}
