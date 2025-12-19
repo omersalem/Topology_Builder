@@ -47,7 +47,26 @@ export default function TopToolbar() {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      dispatch({ type: 'SET_TOPOLOGY', payload: data });
+      
+      // Validate and sanitize imported data
+      const validatedData = {
+        ...data,
+        // Ensure arrays exist
+        devices: data.devices || [],
+        links: data.links || [],
+        groups: data.groups || [],
+        shapes: data.shapes || [],
+        texts: (data.texts || []).map((t: any) => ({
+          ...t,
+          // Ensure texts have x,y coordinates (default to center if missing)
+          x: typeof t.x === 'number' ? t.x : 100,
+          y: typeof t.y === 'number' ? t.y : 100,
+        })),
+        // Merge built-in assets with imported custom assets
+        assets: data.assets || [],
+      };
+      
+      dispatch({ type: 'SET_TOPOLOGY', payload: validatedData });
       alert('Topology imported successfully!');
     } catch (err) {
       alert('Failed to import: Invalid JSON file');
