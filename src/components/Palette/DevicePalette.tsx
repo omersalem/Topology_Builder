@@ -68,7 +68,48 @@ export default function DevicePalette() {
         color: 'white'
       }}>
         <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>📦 Device Palette</h2>
-        <p style={{ margin: '4px 0 10px 0', fontSize: '12px', opacity: 1, color: '#e2e8f0' }}>Click or drag to add devices</p>
+        <p style={{ margin: '4px 0 10px 0', fontSize: '12px', opacity: 1, color: '#e2e8f0' }}>
+          Click to add • Shift+click for stamp mode
+        </p>
+
+        {/* Stamp Mode Indicator */}
+        {editorState.tool === 'stamp' && editorState.stampAsset && (
+          <div style={{
+            background: 'rgba(255,255,255,0.2)',
+            padding: '10px',
+            borderRadius: '8px',
+            marginBottom: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <span style={{ fontSize: '20px' }}>🔨</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '12px', fontWeight: '600' }}>Stamp Mode Active</div>
+              <div style={{ fontSize: '11px', opacity: 0.9 }}>{editorState.stampAsset.name}</div>
+              <div style={{ fontSize: '10px', opacity: 0.7 }}>Click canvas to place • ESC to exit</div>
+            </div>
+            <button
+              onClick={() => setEditorState({ tool: 'select', stampAsset: undefined })}
+              style={{
+                background: 'rgba(255,255,255,0.2)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '24px',
+                height: '24px',
+                cursor: 'pointer',
+                color: 'white',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              title="Exit stamp mode"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {/* Default Size Controls */}
         <div style={{
@@ -202,7 +243,23 @@ export default function DevicePalette() {
               key={asset.id}
               draggable
               onDragStart={(e) => handleDragStart(e, asset)}
-              onClick={() => handleAddToCanvas(asset)}
+              onClick={(e) => {
+                if (e.shiftKey) {
+                  // Shift+click enables stamp mode
+                  setEditorState({
+                    tool: 'stamp',
+                    stampAsset: {
+                      id: asset.id,
+                      name: asset.name,
+                      category: asset.category || '',
+                      src: asset.src || '',
+                    }
+                  });
+                } else {
+                  // Normal click adds device
+                  handleAddToCanvas(asset);
+                }
+              }}
               style={{
                 backgroundColor: 'var(--bg-item)',
                 borderRadius: '12px',

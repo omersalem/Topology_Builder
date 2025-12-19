@@ -154,7 +154,7 @@ export interface Selection {
 export type SelectedItemType = 'device' | 'link' | 'group' | 'shape' | 'text' | null;
 
 export interface EditorState {
-  tool: 'select' | 'pan' | 'link' | 'text' | 'rectangle' | 'circle' | 'polygon';
+  tool: 'select' | 'pan' | 'link' | 'text' | 'rectangle' | 'circle' | 'polygon' | 'stamp';
   isDrawing: boolean;
   isPanning: boolean;
   linkInProgress?: {
@@ -164,6 +164,12 @@ export interface EditorState {
   defaultDeviceSize: {
     width: number;
     height: number;
+  };
+  stampAsset?: {
+    id: string;
+    name: string;
+    category: string;
+    src: string;
   };
 }
 

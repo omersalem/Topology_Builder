@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, type DragEvent } from 'react';
 import { Stage, Layer, Rect, Line, Arrow, Text, Circle, Group, Image, Transformer, Ellipse, Label, Tag } from 'react-konva';
 import Konva from 'konva';
 import { useTopology } from '../../context/TopologyContext';
+import { useTheme } from '../../context/ThemeContext';
 import { generateId } from '../../utils/geometry';
 import { DEFAULT_PORTS } from '../../constants/ports';
 import { builtInAssets } from '../../assets/builtInAssets';
@@ -32,22 +33,26 @@ function DeviceNode({
   image,
   onSelect,
   onTransformEnd,
+  onDragMove,
   onDragEnd,
   onPortClick,
   onPortMove,
   onLabelMove,
   linkingMode,
+  defaultLabelColor,
 }: {
   device: any;
   isSelected: boolean;
   image: HTMLImageElement | null;
   onSelect: (e: Konva.KonvaEventObject<any>) => void;
   onTransformEnd: (id: string, width: number, height: number, x: number, y: number) => void;
+  onDragMove: (id: string, x: number, y: number) => void;
   onDragEnd: (id: string, x: number, y: number) => void;
   onPortClick: (deviceId: string, portId: string) => void;
   onPortMove: (deviceId: string, portId: string, x: number, y: number) => void;
   onLabelMove: (deviceId: string, offsetX: number, offsetY: number) => void;
   linkingMode: boolean;
+  defaultLabelColor: string;
 }) {
   const shapeRef = useRef<Konva.Group>(null);
   const trRef = useRef<Konva.Transformer>(null);
@@ -84,6 +89,9 @@ function DeviceNode({
         onTap={(e) => {
           e.cancelBubble = true;
           onSelect(e);
+        }}
+        onDragMove={(e) => {
+          onDragMove(device.id, e.target.x(), e.target.y());
         }}
         onDragEnd={(e) => {
           onDragEnd(device.id, e.target.x(), e.target.y());
@@ -262,7 +270,7 @@ function DeviceNode({
         fontSize={device.style?.labelSize || 12}
         fontFamily="Arial"
         fontStyle="bold"
-        fill={device.style?.labelColor || '#ffffff'}
+        fill={device.style?.labelColor || defaultLabelColor}
         align="center"
         shadowColor="black"
         shadowBlur={4}
@@ -553,12 +561,32 @@ export default function CanvasStage() {
   // Track drag start positions for multi-device move (used in future enhancement)
   const [_dragStartPositions, setDragStartPositions] = useState<Record<string, { x: number; y: number }>>({});
 
+  // Clipboard for copy/paste
+  const [clipboard, setClipboard] = useState<{
+    devices: any[];
+    links: any[];
+  } | null>(null);
+
+  const { theme } = useTheme();
   const {
     topology,
     selection,
     dispatch,
-    setSelection
+    setSelection,
+    editorState,
+    setEditorState,
   } = useTopology();
+
+  // Theme-aware colors for canvas
+  const canvasColors = theme === 'dark' ? {
+    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
+    gridStroke: 'rgba(71, 85, 105, 0.3)',
+    defaultLabelColor: '#22c55e', // Green in dark mode
+  } : {
+    background: 'linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 50%, #f8fafc 100%)',
+    gridStroke: 'rgba(100, 116, 139, 0.25)',
+    defaultLabelColor: '#000000', // Black in light mode
+  };
 
   // Helper to handle selection with grouping support
   const handleSelect = (
@@ -833,6 +861,34 @@ export default function CanvasStage() {
 
   // Handle stage click to deselect (only if not selecting)
   const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    // Handle stamp tool - place device on click
+    if (editorState.tool === 'stamp' && editorState.stampAsset) {
+      const stage = e.target.getStage();
+      if (!stage) return;
+      const pos = stage.getPointerPosition();
+      if (!pos) return;
+
+      // Convert to canvas coordinates accounting for zoom/pan
+      const x = (pos.x - position.x) / scale;
+      const y = (pos.y - position.y) / scale;
+
+      const newDevice = {
+        id: generateId('dev'),
+        assetId: editorState.stampAsset.id,
+        type: editorState.stampAsset.category || 'Device',
+        label: editorState.stampAsset.name,
+        x: x - (editorState.defaultDeviceSize?.width || 100) / 2,
+        y: y - (editorState.defaultDeviceSize?.height || 100) / 2,
+        width: editorState.defaultDeviceSize?.width || 100,
+        height: editorState.defaultDeviceSize?.height || 100,
+        rotation: 0,
+        ports: [],
+        style: { opacity: 1 },
+      };
+      dispatch({ type: 'ADD_DEVICE', payload: newDevice });
+      return; // Don't deselect when stamping
+    }
+
     if (e.target === e.target.getStage() && !isSelecting) {
       // Click without drag - deselect all
       if (!selectionRect || (selectionRect.width < 5 && selectionRect.height < 5)) {
@@ -990,6 +1046,95 @@ export default function CanvasStage() {
         });
       }
 
+      // Ctrl+C - Copy selected devices and links
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        e.preventDefault();
+        const selectedDevices = topology.devices.filter(d => selection.deviceIds.includes(d.id));
+        const selectedLinks = topology.links.filter(l => selection.linkIds.includes(l.id));
+        
+        // Also include links that connect selected devices
+        const linkedDeviceIds = new Set(selection.deviceIds);
+        const autoIncludedLinks = topology.links.filter(l => 
+          linkedDeviceIds.has(l.from.deviceId) && linkedDeviceIds.has(l.to.deviceId)
+        );
+        
+        // Combine selected links and auto-included links (avoid duplicates)
+        const allLinks = [...selectedLinks];
+        autoIncludedLinks.forEach(link => {
+          if (!allLinks.find(l => l.id === link.id)) {
+            allLinks.push(link);
+          }
+        });
+
+        if (selectedDevices.length > 0 || allLinks.length > 0) {
+          setClipboard({ devices: selectedDevices, links: allLinks });
+        }
+      }
+
+      // Ctrl+V - Paste from clipboard
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault();
+        if (!clipboard || (clipboard.devices.length === 0 && clipboard.links.length === 0)) return;
+
+        // Create ID mapping for devices (old ID -> new ID)
+        const idMap: Record<string, string> = {};
+        const pasteOffset = 20;
+
+        // Paste devices with new IDs and offset positions
+        const newDevices = clipboard.devices.map(device => {
+          const newId = generateId('dev');
+          idMap[device.id] = newId;
+          return {
+            ...device,
+            id: newId,
+            x: device.x + pasteOffset,
+            y: device.y + pasteOffset,
+            label: device.label, // Keep same label
+          };
+        });
+
+        // Paste links with new IDs and remapped device references
+        const newLinks = clipboard.links.map(link => {
+          // Only paste link if both connected devices were pasted
+          const newFromId = idMap[link.from.deviceId];
+          const newToId = idMap[link.to.deviceId];
+          
+          if (!newFromId || !newToId) return null;
+
+          // Clear waypoints and control points - they have absolute coordinates
+          // from the original location and won't work in the new paste location.
+          // Links will draw directly between the pasted devices.
+          return {
+            ...link,
+            id: generateId('link'),
+            from: { ...link.from, deviceId: newFromId },
+            to: { ...link.to, deviceId: newToId },
+            waypoints: [], // Clear waypoints
+            controlPoints: undefined, // Clear control points
+            style: { ...link.style, curveOffset: 0 },
+          };
+        }).filter(Boolean);
+
+        // Add all new devices
+        newDevices.forEach(device => {
+          dispatch({ type: 'ADD_DEVICE', payload: device });
+        });
+
+        // Add all new links
+        newLinks.forEach(link => {
+          if (link) dispatch({ type: 'ADD_LINK', payload: link });
+        });
+
+        // Select the pasted items
+        setSelection({
+          deviceIds: newDevices.map(d => d.id),
+          linkIds: newLinks.filter(Boolean).map(l => l!.id),
+          groupIds: [],
+          shapeIds: [],
+          textIds: [],
+        });
+      }
+
       // Delete or Backspace - Remove selected items (but not when typing in input fields)
       if (e.key === 'Delete' || e.key === 'Backspace') {
         // Don't delete if user is typing in an input field
@@ -1020,15 +1165,19 @@ export default function CanvasStage() {
         });
       }
 
-      // Escape - Cancel linking mode
+      // Escape - Cancel linking mode and stamp mode
       if (e.key === 'Escape') {
         setLinkingMode(false);
         setLinkSource(null);
+        // Also exit stamp mode
+        if (editorState.tool === 'stamp') {
+          setEditorState({ tool: 'select', stampAsset: undefined });
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selection, dispatch, setSelection, topology.devices]);
+  }, [selection, dispatch, setSelection, topology.devices, topology.links, editorState.tool, setEditorState, clipboard]);
 
   // Get link points
   const getLinkPoints = (link: any) => {
@@ -1178,7 +1327,7 @@ export default function CanvasStage() {
       ref={containerRef}
       className="w-full h-full relative overflow-hidden"
       style={{
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
+        background: canvasColors.background,
       }}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
@@ -1240,7 +1389,7 @@ export default function CanvasStage() {
             <Line
               key={`grid-v-${i}`}
               points={[i * 50, 0, i * 50, 5000]}
-              stroke="rgba(71, 85, 105, 0.3)"
+              stroke={canvasColors.gridStroke}
               strokeWidth={1}
             />
           ))}
@@ -1248,7 +1397,7 @@ export default function CanvasStage() {
             <Line
               key={`grid-h-${i}`}
               points={[0, i * 50, 5000, i * 50]}
-              stroke="rgba(71, 85, 105, 0.3)"
+              stroke={canvasColors.gridStroke}
               strokeWidth={1}
             />
           ))}
@@ -1307,12 +1456,31 @@ export default function CanvasStage() {
                   payload: { id, updates: { width, height, x, y } },
                 });
               }}
+              onDragMove={(_id, _newX, _newY) => {
+                // No-op during drag - we'll update all at once on drag end
+                // Real-time sync causes cumulative delta issues
+              }}
               onDragEnd={(id, newX, newY) => {
                 const deltaX = newX - device.x;
                 const deltaY = newY - device.y;
 
-                if (selection.deviceIds.includes(id)) {
-                  moveSelection(deltaX, deltaY);
+                // Move all selected devices together by the same delta
+                if (selection.deviceIds.length > 1 && selection.deviceIds.includes(id)) {
+                  selection.deviceIds.forEach(deviceId => {
+                    const dev = topology.devices.find(d => d.id === deviceId);
+                    if (dev) {
+                      dispatch({
+                        type: 'UPDATE_DEVICE',
+                        payload: {
+                          id: deviceId,
+                          updates: {
+                            x: deviceId === id ? newX : dev.x + deltaX,
+                            y: deviceId === id ? newY : dev.y + deltaY,
+                          }
+                        },
+                      });
+                    }
+                  });
                 } else {
                   dispatch({ type: 'UPDATE_DEVICE', payload: { id, updates: { x: newX, y: newY } } });
                 }
@@ -1349,6 +1517,7 @@ export default function CanvasStage() {
                 }
               }}
               linkingMode={linkingMode}
+              defaultLabelColor={canvasColors.defaultLabelColor}
             />
           ))}
 
