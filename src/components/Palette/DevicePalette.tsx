@@ -1,4 +1,4 @@
-import { useState, useMemo, type DragEvent } from 'react';
+import { useState, useMemo, useRef, useCallback, type DragEvent } from 'react';
 import { useTopology } from '../../context/TopologyContext';
 import { builtInAssets, assetCategories } from '../../assets/builtInAssets';
 import { generateId } from '../../utils/geometry';
@@ -7,6 +7,28 @@ export default function DevicePalette() {
   const { topology, dispatch, editorState, setEditorState } = useTopology();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [panelWidth, setPanelWidth] = useState(280);
+  const isResizing = useRef(false);
+
+  // Resize handlers
+  const handleResizeMove = useCallback((e: MouseEvent) => {
+    if (!isResizing.current) return;
+    const newWidth = Math.min(500, Math.max(200, e.clientX));
+    setPanelWidth(newWidth);
+  }, []);
+
+  const handleResizeEnd = useCallback(() => {
+    isResizing.current = false;
+    document.removeEventListener('mousemove', handleResizeMove);
+    document.removeEventListener('mouseup', handleResizeEnd);
+  }, [handleResizeMove]);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    document.addEventListener('mousemove', handleResizeMove);
+    document.addEventListener('mouseup', handleResizeEnd);
+  }, [handleResizeMove, handleResizeEnd]);
 
   // Combine built-in and user assets
   const allAssets = useMemo(() => {
@@ -52,7 +74,9 @@ export default function DevicePalette() {
 
   return (
     <div style={{
-      width: '280px',
+      width: `${panelWidth}px`,
+      minWidth: '200px',
+      maxWidth: '500px',
       height: '100%',
       backgroundColor: 'var(--bg-panel)',
       borderRight: '1px solid var(--border-color)',
@@ -60,7 +84,25 @@ export default function DevicePalette() {
       flexDirection: 'column',
       overflow: 'hidden',
       transition: 'background-color 0.2s',
+      position: 'relative',
+      flexShrink: 0,
     }}>
+      {/* Resize Handle */}
+      <div
+        onMouseDown={handleResizeStart}
+        style={{
+          position: 'absolute',
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: '6px',
+          cursor: 'col-resize',
+          backgroundColor: 'transparent',
+          zIndex: 10,
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.5)')}
+        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+      />
       {/* Header */}
       <div style={{
         padding: '16px',

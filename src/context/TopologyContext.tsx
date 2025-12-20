@@ -47,6 +47,7 @@ const initialTopology: Topology = {
   groups: [],
   shapes: [],
   texts: [],
+  lanes: [],
 };
 
 const initialSelection: Selection = {
@@ -55,6 +56,7 @@ const initialSelection: Selection = {
   groupIds: [],
   shapeIds: [],
   textIds: [],
+  laneIds: [],
 };
 
 const initialEditorState: EditorState = {
@@ -181,6 +183,24 @@ function topologyReducer(state: Topology, action: TopologyAction): Topology {
       return {
         ...state,
         canvas: { ...state.canvas, ...action.payload },
+      };
+
+    // Lane actions
+    case 'ADD_LANE':
+      return { ...state, lanes: [...state.lanes, action.payload] };
+
+    case 'UPDATE_LANE':
+      return {
+        ...state,
+        lanes: state.lanes.map((l) =>
+          l.id === action.payload.id ? { ...l, ...action.payload.updates } : l
+        ),
+      };
+
+    case 'REMOVE_LANE':
+      return {
+        ...state,
+        lanes: state.lanes.filter((l) => l.id !== action.payload),
       };
 
     default:

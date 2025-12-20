@@ -216,6 +216,19 @@ export default function TopToolbar() {
     });
   };
 
+  const handleAddLane = () => {
+    const newLane = {
+      id: generateId('lane'),
+      title: `LANE ${topology.lanes.length + 1} — New Data Flow`,
+      y: 100 + topology.lanes.length * 120,
+      height: 100,
+      color: 'rgba(59, 130, 246, 0.15)',
+      labelColor: '#ffffff',
+      visible: true,
+    };
+    dispatch({ type: 'ADD_LANE', payload: newLane });
+  };
+
   // Modal styles
   const modalOverlayStyle: React.CSSProperties = {
     position: 'fixed',
@@ -558,6 +571,20 @@ export default function TopToolbar() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
               Snap
+            </button>
+            <button
+              onClick={handleAddLane}
+              style={{
+                ...toolbarBtnStyle,
+                background: 'transparent',
+                color: '#94a3b8',
+              }}
+              title="Add Data Flow Lane"
+            >
+              <svg style={{ width: '14px', height: '14px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              Lane
             </button>
             <button
               onClick={() => {

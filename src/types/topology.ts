@@ -36,6 +36,8 @@ export interface Device {
     labelSize?: number; // Label font size in pixels
     labelOffsetX?: number; // Label X offset from default position
     labelOffsetY?: number; // Label Y offset from default position
+    labelBold?: boolean; // Label bold style
+    labelUnderline?: boolean; // Label underline style
   };
   zIndex?: number;
 }
@@ -90,6 +92,7 @@ export interface TextAnnotation {
   width?: number;
   align: 'left' | 'center' | 'right';
   fontStyle?: string; // 'normal', 'bold', 'italic', etc.
+  textDecoration?: string; // 'underline', 'line-through', etc.
   backgroundColor?: string;
   padding?: number;
 }
@@ -112,6 +115,17 @@ export interface Shape {
   points?: number[]; // for polygon and path
   radius?: number; // for circle
   cornerRadius?: number; // for rounded rect
+}
+
+// Data flow scenario lane
+export interface Lane {
+  id: string;
+  title: string;           // e.g., "LANE 1 — Inbound Web Traffic"
+  y: number;               // Y position on canvas
+  height: number;          // Lane height in pixels (50-300)
+  color: string;           // Band background color (with transparency)
+  labelColor?: string;     // Label text color
+  visible?: boolean;       // Show/hide lane
 }
 
 export interface CanvasConfig {
@@ -140,6 +154,7 @@ export interface Topology {
   groups: Group[];
   shapes: Shape[];
   texts: TextAnnotation[];
+  lanes: Lane[];
 }
 
 // Selection and UI state
@@ -149,6 +164,7 @@ export interface Selection {
   groupIds: string[];
   shapeIds: string[];
   textIds: string[];
+  laneIds: string[];
 }
 
 export type SelectedItemType = 'device' | 'link' | 'group' | 'shape' | 'text' | null;
@@ -205,6 +221,9 @@ export type TopologyAction =
   | { type: 'ADD_TEXT'; payload: TextAnnotation }
   | { type: 'UPDATE_TEXT'; payload: { id: string; updates: Partial<TextAnnotation> } }
   | { type: 'REMOVE_TEXT'; payload: string }
+  | { type: 'ADD_LANE'; payload: Lane }
+  | { type: 'UPDATE_LANE'; payload: { id: string; updates: Partial<Lane> } }
+  | { type: 'REMOVE_LANE'; payload: string }
   | { type: 'SET_SELECTION'; payload: Selection }
   | { type: 'UPDATE_CANVAS'; payload: Partial<CanvasConfig> }
   | { type: 'UNDO' }

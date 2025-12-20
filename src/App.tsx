@@ -19,7 +19,7 @@ function App() {
             <DevicePalette />
 
             {/* Center - Canvas */}
-            <div className="flex-1 relative">
+            <div className="flex-1 relative" style={{ minWidth: '200px' }}>
               <CanvasStage />
             </div>
 

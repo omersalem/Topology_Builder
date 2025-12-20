@@ -530,6 +530,97 @@ function TextNode({
   );
 }
 
+// Lane Stripe component for data flow scenarios
+function LaneStripe({
+  lane,
+  isSelected,
+  canvasWidth,
+  onSelect,
+  onDragEnd,
+  onHeightChange,
+  isPanMode,
+}: {
+  lane: any;
+  isSelected: boolean;
+  canvasWidth: number;
+  onSelect: (e: Konva.KonvaEventObject<any>) => void;
+  onDragEnd: (id: string, y: number) => void;
+  onHeightChange: (id: string, height: number) => void;
+  isPanMode?: boolean;
+}) {
+  const groupRef = useRef<Konva.Group>(null);
+
+  if (lane.visible === false) return null;
+
+  return (
+    <Group
+      ref={groupRef}
+      y={lane.y}
+      draggable={!isPanMode}
+      listening={!isPanMode}
+      onClick={onSelect}
+      onTap={onSelect}
+      onDragEnd={(e) => onDragEnd(lane.id, e.target.y())}
+      dragBoundFunc={(pos) => ({ x: 0, y: pos.y })}
+    >
+      {/* Lane background - non-interactive for pan mode */}
+      <Rect
+        x={0}
+        y={0}
+        width={canvasWidth}
+        height={lane.height}
+        fill={lane.color || 'rgba(59, 130, 246, 0.15)'}
+        stroke={isSelected ? '#3b82f6' : 'transparent'}
+        strokeWidth={isSelected ? 2 : 0}
+        listening={false}
+      />
+      {/* Lane title at top-left with background */}
+      <Rect
+        x={5}
+        y={3}
+        width={Math.min(lane.title?.length * 8 + 20 || 200, 400)}
+        height={20}
+        fill="rgba(0, 0, 0, 0.5)"
+        cornerRadius={3}
+        listening={false}
+      />
+      <Text
+        x={10}
+        y={5}
+        text={lane.title || 'Unnamed Lane'}
+        fontSize={12}
+        fontFamily="Arial"
+        fontStyle="bold"
+        fill={lane.labelColor || '#f97316'}
+        listening={false}
+      />
+      {/* Resize handle at bottom */}
+      <Rect
+        x={0}
+        y={lane.height - 6}
+        width={canvasWidth}
+        height={6}
+        fill="transparent"
+        onMouseEnter={(e) => {
+          const container = e.target.getStage()?.container();
+          if (container) container.style.cursor = 'ns-resize';
+        }}
+        onMouseLeave={(e) => {
+          const container = e.target.getStage()?.container();
+          if (container) container.style.cursor = 'default';
+        }}
+        draggable
+        dragBoundFunc={(pos) => ({ x: 0, y: pos.y })}
+        onDragEnd={(e) => {
+          const newHeight = Math.max(50, Math.min(300, e.target.y() + 6));
+          e.target.y(newHeight - 6);
+          onHeightChange(lane.id, newHeight);
+        }}
+      />
+    </Group>
+  );
+}
+
 export default function CanvasStage() {
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -648,6 +739,7 @@ export default function CanvasStage() {
         groupIds: groupId ? [groupId] : [],
         shapeIds: targetIds.shapeIds,
         textIds: targetIds.textIds,
+        laneIds: [],
       });
     }
   };
@@ -755,6 +847,7 @@ export default function CanvasStage() {
           groupIds: [],
           shapeIds: [],
           textIds: [],
+          laneIds: [],
         });
       }
     }
@@ -840,6 +933,7 @@ export default function CanvasStage() {
           groupIds: [],
           shapeIds: [],
           textIds: [],
+          laneIds: [],
         });
 
         // Store initial positions for multi-device drag
@@ -898,6 +992,7 @@ export default function CanvasStage() {
           groupIds: [],
           shapeIds: [],
           textIds: [],
+          laneIds: [],
         });
       }
       // Don't cancel linking mode here - let waypoint click handler manage it
@@ -1043,6 +1138,7 @@ export default function CanvasStage() {
           groupIds: [],
           shapeIds: [],
           textIds: [],
+          laneIds: [],
         });
       }
 
@@ -1132,6 +1228,7 @@ export default function CanvasStage() {
           groupIds: [],
           shapeIds: [],
           textIds: [],
+          laneIds: [],
         });
       }
 
@@ -1162,6 +1259,7 @@ export default function CanvasStage() {
           groupIds: [],
           shapeIds: [],
           textIds: [],
+          laneIds: [],
         });
       }
 
@@ -1402,6 +1500,44 @@ export default function CanvasStage() {
             />
           ))}
 
+          {/* Data Flow Lanes - rendered behind everything except grid */}
+          {(topology.lanes || []).map(lane => (
+            <LaneStripe
+              key={lane.id}
+              lane={lane}
+              isSelected={(selection.laneIds || []).includes(lane.id)}
+              canvasWidth={topology.canvas.width}
+              isPanMode={topology.canvas.panMode}
+              onSelect={(e) => {
+                e.cancelBubble = true;
+                if (e.evt.ctrlKey || e.evt.metaKey) {
+                  const isCurrentlySelected = (selection.laneIds || []).includes(lane.id);
+                  setSelection({
+                    ...selection,
+                    laneIds: isCurrentlySelected
+                      ? (selection.laneIds || []).filter(id => id !== lane.id)
+                      : [...(selection.laneIds || []), lane.id]
+                  });
+                } else {
+                  setSelection({
+                    deviceIds: [],
+                    linkIds: [],
+                    groupIds: [],
+                    shapeIds: [],
+                    textIds: [],
+                    laneIds: [lane.id],
+                  });
+                }
+              }}
+              onDragEnd={(id, y) => {
+                dispatch({ type: 'UPDATE_LANE', payload: { id, updates: { y } } });
+              }}
+              onHeightChange={(id, height) => {
+                dispatch({ type: 'UPDATE_LANE', payload: { id, updates: { height } } });
+              }}
+            />
+          ))}
+
           {/* Zone Shapes - rendered behind devices */}
           {topology.shapes.map(shape => {
             const isShapeSelected = selection.shapeIds.includes(shape.id);
@@ -1436,6 +1572,7 @@ export default function CanvasStage() {
                     groupIds: [],
                     shapeIds: [],
                     textIds: [],
+                    laneIds: [],
                   });
                 }}
               />
@@ -1591,6 +1728,7 @@ export default function CanvasStage() {
                         groupIds: [],
                         shapeIds: [],
                         textIds: [],
+                        laneIds: [],
                       });
                     }
                   }}
