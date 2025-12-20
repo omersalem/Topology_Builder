@@ -336,6 +336,228 @@ const handleResizeStart = (e: React.MouseEvent) => {
 
 ---
 
+## Extracting & Adding New Device Icons
+
+This project includes several Node.js scripts for extracting device icons from images and adding them to the device palette.
+
+### Prerequisites
+```bash
+npm install sharp  # Image processing library (already in package.json)
+```
+
+### Method 1: Crop Icons from a Grid Image
+
+If you have an image with multiple device icons arranged in a grid:
+
+**Script:** `extract-final.mjs` (or similar `extract-*.mjs` scripts)
+
+```javascript
+import sharp from 'sharp';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const inputImage = 'path/to/your/grid-image.png';
+const outputDir = path.join(__dirname, 'src/assets/icons/devices');
+
+// Define where each icon is in the grid
+const icons = [
+  { name: 'my_router', col: 0, row: 0 },
+  { name: 'my_switch', col: 1, row: 0 },
+  { name: 'my_firewall', col: 2, row: 0 },
+  // ... add more icons
+];
+
+async function extractIcons() {
+  const image = sharp(inputImage);
+  const metadata = await image.metadata();
+  
+  const cols = 5;  // Number of columns in grid
+  const rows = 2;  // Number of rows in grid
+  const iconWidth = Math.floor(metadata.width / cols);
+  const iconHeight = Math.floor(metadata.height / rows);
+  const labelHeight = 50; // Height of text label to remove from bottom
+  
+  for (const icon of icons) {
+    const left = icon.col * iconWidth + 10;  // +10 padding
+    const top = icon.row * iconHeight + 10;
+    const width = iconWidth - 20;
+    const height = iconHeight - labelHeight - 10;
+    
+    await sharp(inputImage)
+      .extract({ left, top, width, height })
+      .png()
+      .toFile(path.join(outputDir, `${icon.name}.png`));
+    
+    console.log(`Extracted: ${icon.name}.png`);
+  }
+}
+
+extractIcons();
+```
+
+**Run:** `node extract-final.mjs`
+
+### Method 2: Trim Transparent Borders from Individual Icons
+
+If you have individual icon files with extra whitespace/transparency:
+
+**Script:** `trim-extracted-devices.mjs`
+
+```javascript
+import sharp from 'sharp';
+import path from 'path';
+import fs from 'fs';
+
+const sourceDir = './extracted_devices';      // Your raw icons
+const destDir = './src/assets/icons/devices'; // Final destination
+
+async function trimIcon(filename) {
+  const sourcePath = path.join(sourceDir, filename);
+  const destPath = path.join(destDir, filename.replace('.png', '_alt.png'));
+  
+  await sharp(sourcePath)
+    .trim({ threshold: 10 })  // Remove borders within color threshold
+    .png()
+    .toFile(destPath);
+  
+  console.log(`Trimmed: ${filename}`);
+}
+
+// Process all PNGs in source directory
+const files = fs.readdirSync(sourceDir).filter(f => f.endsWith('.png'));
+for (const file of files) {
+  await trimIcon(file);
+}
+```
+
+**Run:** `node trim-extracted-devices.mjs`
+
+### Method 3: Remove Background Color from Icons
+
+If icons have a solid background color (e.g., gray, white):
+
+**Script:** `extract-final.mjs` or `remove-bg.mjs`
+
+```javascript
+// After extracting, process each pixel to remove background
+const { data, info } = await sharp(inputImage)
+  .extract({ left, top, width, height })
+  .ensureAlpha()
+  .raw()
+  .toBuffer({ resolveWithObject: true });
+
+const pixels = Buffer.alloc(data.length);
+
+for (let i = 0; i < data.length; i += 4) {
+  const r = data[i];
+  const g = data[i + 1];
+  const b = data[i + 2];
+  const a = data[i + 3];
+  
+  const brightness = (r + g + b) / 3;
+  const colorDiff = Math.max(r, g, b) - Math.min(r, g, b);
+  
+  // Remove gray background: low color difference + dark
+  const isBackground = (colorDiff < 40 && brightness < 110) || brightness < 50;
+  
+  pixels[i] = r;
+  pixels[i + 1] = g;
+  pixels[i + 2] = b;
+  pixels[i + 3] = isBackground ? 0 : a;  // Make transparent
+}
+
+await sharp(pixels, { raw: { width: info.width, height: info.height, channels: 4 } })
+  .png()
+  .toFile(outputPath);
+```
+
+### Step-by-Step: Adding a New Device to the Palette
+
+**Step 1:** Save your icon PNG to `src/assets/icons/devices/`
+- Recommended size: 100x100 to 200x200 pixels
+- Format: PNG with transparency
+- Naming: `my_device_name.png` (lowercase, underscores)
+
+**Step 2:** Import the icon in `src/assets/builtInAssets.ts`:
+```typescript
+// Add import at the top of the file
+import myDeviceIcon from './icons/devices/my_device_name.png';
+```
+
+**Step 3:** Add entry to the `builtInAssets` array:
+```typescript
+export const builtInAssets: Asset[] = [
+  // ... existing devices ...
+  
+  {
+    id: 'my-device-name',           // Unique ID (used in JSON files)
+    name: 'My Device Name',          // Display name in palette
+    type: 'builtin',
+    src: myDeviceIcon,               // The imported image
+    category: 'Network',             // Network, Security, Servers, Storage, Cloud, Other
+    defaultWidth: 100,               // Default size when placed
+    defaultHeight: 100,
+  },
+];
+```
+
+**Step 4:** Rebuild and test:
+```bash
+npm run dev
+# Open browser, device should appear in palette under its category
+```
+
+### Batch Adding Multiple Devices
+
+The `trim-extracted-devices.mjs` script outputs ready-to-paste code:
+
+```bash
+node trim-extracted-devices.mjs
+```
+
+**Output:**
+```
+--- Import statements for builtInAssets.ts ---
+
+import cisco_switch_alt from './icons/devices/cisco_switch_alt.png';
+import fortigate_601e_alt from './icons/devices/fortigate_601e_alt.png';
+
+--- Asset entries for builtInAssets.ts ---
+
+  {
+    id: 'cisco_switch_alt',
+    name: 'Cisco Switch Alt',
+    type: 'png',
+    src: cisco_switch_alt,
+    category: 'Network',
+    defaultWidth: 100,
+    defaultHeight: 100,
+  },
+```
+
+Copy and paste these into `builtInAssets.ts`.
+
+### Useful Scripts in the Project
+
+| Script | Purpose |
+|--------|---------|
+| `extract-final.mjs` | Extract icons from grid image with background removal |
+| `trim-extracted-devices.mjs` | Trim whitespace and generate import code |
+| `crop-all-icons.mjs` | Batch crop icons from a labeled diagram |
+| `fix-white-bg.mjs` | Remove white background from icons |
+| `remove-bg.mjs` | Remove any solid color background |
+
+### Tips for Good Device Icons
+
+1. **Transparent background** - Essential for visual quality
+2. **Consistent size** - 100-150px works well
+3. **Clear silhouette** - Icon should be recognizable when small
+4. **Square aspect ratio** - Or close to it (prevents distortion)
+5. **High contrast** - Icons should stand out on dark canvas backgrounds
+
+---
+
 ## Sample Topology Files
 
 - `public/government-ministry-dataflow.json` - 10-lane data flow diagram with ~60 devices
