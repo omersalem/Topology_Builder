@@ -72,7 +72,7 @@ export default function PropertyInspector() {
       const device = topology.devices.find(d => d.id === deviceId);
       if (device) {
         // For style updates, merge with existing style
-        const finalUpdates = updates.style 
+        const finalUpdates = updates.style
           ? { ...updates, style: { ...device.style, ...updates.style } }
           : updates;
         dispatch({ type: 'UPDATE_DEVICE', payload: { id: deviceId, updates: finalUpdates } });
@@ -271,14 +271,14 @@ export default function PropertyInspector() {
                   <input
                     type="color"
                     value={selectedDevice.style.labelColor || '#ffffff'}
-                    onChange={(e) => updateDevice({ style: { ...selectedDevice.style, labelColor: e.target.value } })}
+                    onChange={(e) => updateDevice({ style: { labelColor: e.target.value } })}
                     className="w-10 h-8 bg-[var(--bg-input)] rounded border border-[var(--border-color)] cursor-pointer"
                   />
                   <div className="flex gap-1">
                     {['#ffffff', '#22c55e', '#3b82f6', '#f59e0b', '#ef4444'].map((color) => (
                       <button
                         key={color}
-                        onClick={() => updateDevice({ style: { ...selectedDevice.style, labelColor: color } })}
+                        onClick={() => updateDevice({ style: { labelColor: color } })}
                         className="w-6 h-6 rounded border border-[var(--border-color)]"
                         style={{ backgroundColor: color }}
                         title={color}
@@ -295,7 +295,7 @@ export default function PropertyInspector() {
                     min="8"
                     max="24"
                     value={selectedDevice.style.labelSize || 12}
-                    onChange={(e) => updateDevice({ style: { ...selectedDevice.style, labelSize: Number(e.target.value) } })}
+                    onChange={(e) => updateDevice({ style: { labelSize: Number(e.target.value) } })}
                     className="flex-1"
                   />
                   <span className="text-sm text-[var(--text-main)] w-12 text-right font-bold">{selectedDevice.style.labelSize || 12}px</span>
@@ -306,21 +306,21 @@ export default function PropertyInspector() {
             {/* Label Style Buttons */}
             <div className="flex gap-2">
               <button
-                onClick={() => updateDevice({ style: { ...selectedDevice.style, labelBold: !selectedDevice.style?.labelBold } })}
+                onClick={() => updateDevice({ style: { labelBold: !selectedDevice.style?.labelBold } })}
                 className={`flex-1 px-3 py-2 rounded-lg border transition-colors text-sm font-bold ${selectedDevice.style?.labelBold
                   ? 'bg-blue-600 border-blue-600 text-white'
                   : 'bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-hover)]'
-                }`}
+                  }`}
                 title="Bold"
               >
                 B
               </button>
               <button
-                onClick={() => updateDevice({ style: { ...selectedDevice.style, labelUnderline: !selectedDevice.style?.labelUnderline } })}
+                onClick={() => updateDevice({ style: { labelUnderline: !selectedDevice.style?.labelUnderline } })}
                 className={`flex-1 px-3 py-2 rounded-lg border transition-colors text-sm ${selectedDevice.style?.labelUnderline
                   ? 'bg-blue-600 border-blue-600 text-white underline'
                   : 'bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-hover)] underline'
-                }`}
+                  }`}
                 title="Underline"
               >
                 U
@@ -553,7 +553,7 @@ export default function PropertyInspector() {
                         className={`flex-1 px-3 py-2 rounded-lg border transition-colors text-sm font-bold ${selectedText.fontStyle === 'bold'
                           ? 'bg-blue-600 border-blue-600 text-white'
                           : 'bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-hover)]'
-                        }`}
+                          }`}
                         title="Bold"
                       >
                         B
@@ -563,7 +563,7 @@ export default function PropertyInspector() {
                         className={`flex-1 px-3 py-2 rounded-lg border transition-colors text-sm ${selectedText.textDecoration === 'underline'
                           ? 'bg-blue-600 border-blue-600 text-white underline'
                           : 'bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-hover)] underline'
-                        }`}
+                          }`}
                         title="Underline"
                       >
                         U
@@ -600,7 +600,7 @@ export default function PropertyInspector() {
                         className={`nav-btn px-2 rounded-lg border ${selectedText.backgroundColor !== 'transparent' && selectedText.backgroundColor
                           ? 'bg-blue-600 text-white border-blue-600'
                           : 'bg-[var(--bg-input)] text-[var(--text-muted)] border-[var(--border-color)]'
-                        }`}
+                          }`}
                         title="Toggle Background"
                       >
                         T
@@ -624,77 +624,77 @@ export default function PropertyInspector() {
         )}
       </div>
 
-        {/* Lane Properties */}
-        {selectedLane && (
-          <div className="p-4 space-y-3 border-t border-[var(--border-color)]">
-            <h3 className="text-sm font-semibold text-[var(--text-main)] flex items-center gap-2">
-              <span>🛤️</span> Lane Properties
-            </h3>
+      {/* Lane Properties */}
+      {selectedLane && (
+        <div className="p-4 space-y-3 border-t border-[var(--border-color)]">
+          <h3 className="text-sm font-semibold text-[var(--text-main)] flex items-center gap-2">
+            <span>🛤️</span> Lane Properties
+          </h3>
 
-            <div>
-              <label className="block text-xs text-[var(--text-muted)] mb-1">Title</label>
-              <input
-                type="text"
-                value={selectedLane.title}
-                onChange={(e) => updateLane({ title: e.target.value })}
-                className="w-full px-3 py-2 bg-[var(--bg-input)] text-[var(--text-main)] rounded-lg border border-[var(--border-color)] focus:border-blue-500 focus:outline-none text-sm"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs text-[var(--text-muted)] mb-1">Band Color</label>
-                <input
-                  type="color"
-                  value={selectedLane.color?.startsWith('rgba') ? '#3b82f6' : (selectedLane.color || '#3b82f6')}
-                  onChange={(e) => updateLane({ color: `${e.target.value}33` })}
-                  className="w-full h-8 bg-[var(--bg-input)] rounded-lg border border-[var(--border-color)] cursor-pointer"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-[var(--text-muted)] mb-1">Label Color</label>
-                <input
-                  type="color"
-                  value={selectedLane.labelColor || '#ffffff'}
-                  onChange={(e) => updateLane({ labelColor: e.target.value })}
-                  className="w-full h-8 bg-[var(--bg-input)] rounded-lg border border-[var(--border-color)] cursor-pointer"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs text-[var(--text-muted)] mb-1">Height: {selectedLane.height}px</label>
-              <input
-                type="range"
-                min="50"
-                max="300"
-                value={selectedLane.height}
-                onChange={(e) => updateLane({ height: Number(e.target.value) })}
-                className="w-full"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs text-[var(--text-muted)] mb-1">Y Position</label>
-              <input
-                type="number"
-                value={Math.round(selectedLane.y)}
-                onChange={(e) => updateLane({ y: Number(e.target.value) })}
-                className="w-full px-3 py-2 bg-[var(--bg-input)] text-[var(--text-main)] rounded-lg border border-[var(--border-color)] focus:border-blue-500 focus:outline-none text-sm"
-              />
-            </div>
-
-            <button
-              onClick={() => {
-                dispatch({ type: 'REMOVE_LANE', payload: selectedLane.id });
-                setSelection({ ...selection, laneIds: selection.laneIds.filter(id => id !== selectedLane.id) });
-              }}
-              className="w-full py-2 text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors font-medium text-sm"
-            >
-              Delete Lane
-            </button>
+          <div>
+            <label className="block text-xs text-[var(--text-muted)] mb-1">Title</label>
+            <input
+              type="text"
+              value={selectedLane.title}
+              onChange={(e) => updateLane({ title: e.target.value })}
+              className="w-full px-3 py-2 bg-[var(--bg-input)] text-[var(--text-main)] rounded-lg border border-[var(--border-color)] focus:border-blue-500 focus:outline-none text-sm"
+            />
           </div>
-        )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-[var(--text-muted)] mb-1">Band Color</label>
+              <input
+                type="color"
+                value={selectedLane.color?.startsWith('rgba') ? '#3b82f6' : (selectedLane.color || '#3b82f6')}
+                onChange={(e) => updateLane({ color: `${e.target.value}33` })}
+                className="w-full h-8 bg-[var(--bg-input)] rounded-lg border border-[var(--border-color)] cursor-pointer"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-[var(--text-muted)] mb-1">Label Color</label>
+              <input
+                type="color"
+                value={selectedLane.labelColor || '#ffffff'}
+                onChange={(e) => updateLane({ labelColor: e.target.value })}
+                className="w-full h-8 bg-[var(--bg-input)] rounded-lg border border-[var(--border-color)] cursor-pointer"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs text-[var(--text-muted)] mb-1">Height: {selectedLane.height}px</label>
+            <input
+              type="range"
+              min="50"
+              max="300"
+              value={selectedLane.height}
+              onChange={(e) => updateLane({ height: Number(e.target.value) })}
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-[var(--text-muted)] mb-1">Y Position</label>
+            <input
+              type="number"
+              value={Math.round(selectedLane.y)}
+              onChange={(e) => updateLane({ y: Number(e.target.value) })}
+              className="w-full px-3 py-2 bg-[var(--bg-input)] text-[var(--text-main)] rounded-lg border border-[var(--border-color)] focus:border-blue-500 focus:outline-none text-sm"
+            />
+          </div>
+
+          <button
+            onClick={() => {
+              dispatch({ type: 'REMOVE_LANE', payload: selectedLane.id });
+              setSelection({ ...selection, laneIds: selection.laneIds.filter(id => id !== selectedLane.id) });
+            }}
+            className="w-full py-2 text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors font-medium text-sm"
+          >
+            Delete Lane
+          </button>
+        </div>
+      )}
 
       {/* Delete Button */}
       <div className="p-4 border-t border-[var(--border-color)]">

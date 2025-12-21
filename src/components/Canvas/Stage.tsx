@@ -269,11 +269,11 @@ function DeviceNode({
         text={device.label}
         fontSize={device.style?.labelSize || 12}
         fontFamily="Arial"
-        fontStyle="bold"
+        fontStyle={device.style?.labelBold ? 'bold' : 'normal'}
+        textDecoration={device.style?.labelUnderline ? 'underline' : ''}
         fill={device.style?.labelColor || defaultLabelColor}
         align="center"
-        shadowColor="black"
-        shadowBlur={4}
+
         draggable
         onDragEnd={(e) => {
           const newOffsetX = e.target.x() - device.x;
@@ -1147,13 +1147,13 @@ export default function CanvasStage() {
         e.preventDefault();
         const selectedDevices = topology.devices.filter(d => selection.deviceIds.includes(d.id));
         const selectedLinks = topology.links.filter(l => selection.linkIds.includes(l.id));
-        
+
         // Also include links that connect selected devices
         const linkedDeviceIds = new Set(selection.deviceIds);
-        const autoIncludedLinks = topology.links.filter(l => 
+        const autoIncludedLinks = topology.links.filter(l =>
           linkedDeviceIds.has(l.from.deviceId) && linkedDeviceIds.has(l.to.deviceId)
         );
-        
+
         // Combine selected links and auto-included links (avoid duplicates)
         const allLinks = [...selectedLinks];
         autoIncludedLinks.forEach(link => {
@@ -1194,7 +1194,7 @@ export default function CanvasStage() {
           // Only paste link if both connected devices were pasted
           const newFromId = idMap[link.from.deviceId];
           const newToId = idMap[link.to.deviceId];
-          
+
           if (!newFromId || !newToId) return null;
 
           // Clear waypoints and control points - they have absolute coordinates
